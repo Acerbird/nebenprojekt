@@ -1,0 +1,73 @@
+/* frontend/static/css/style.css */
+:root{
+  --bg: #071022;
+  --card: rgba(255,255,255,0.02);
+  --muted: #9fb7c9;
+  --accent-1: #00c2a8; /* grün/türkis */
+  --accent-2: #6ee7ff; /* hellblau */
+  --glass: rgba(255,255,255,0.03);
+  --radius:14px;
+  --fw-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --fw-serif: "Playfair Display", serif;
+}
+
+*{box-sizing:border-box;transition:all 0.18s ease}
+html,body{height:100%;margin:0;font-family:var(--fw-sans);background:linear-gradient(180deg,#04121A 0%, #071022 60%);color:#e8f6f5}
+.container{max-width:1100px;margin:0 auto;padding:28px}
+
+/* header */
+header{display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,var(--accent-1),var(--accent-2));display:grid;place-items:center;font-weight:800;color:#013033;box-shadow:0 8px 28px rgba(0,194,168,0.12)}
+.kicker{color:var(--muted);font-size:13px}
+nav{display:flex;gap:16px}
+nav a{color:var(--muted);text-decoration:none;padding:8px;border-radius:10px;font-weight:600;position:relative;outline:none}
+nav a:hover, nav a:focus{
+  color:#013033;
+  background:linear-gradient(90deg,rgba(0,194,168,0.12), rgba(110,231,255,0.06));
+  box-shadow:0 6px 18px rgba(0,194,168,0.06);
+  transform:translateY(-3px);
+}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1fr;gap:24px;align-items:start;margin-top:18px}
+.hero-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:28px;border-radius:18px;backdrop-filter: blur(4px);box-shadow:0 12px 40px rgba(0,0,0,0.5)}
+.eyebrow{display:inline-block;padding:6px 10px;background:var(--glass);border-radius:999px;color:var(--muted);font-weight:700;margin-bottom:12px}
+h2{font-family:var(--fw-serif);font-size:36px;margin:6px 0}
+.lead{color:var(--muted);max-width:70%}
+.cta-row{margin-top:14px;display:flex;gap:12px;align-items:center}
+.btn-primary{background:linear-gradient(90deg,var(--accent-1),var(--accent-2));padding:10px 14px;border-radius:12px;font-weight:700;border:none;cursor:pointer;color:#013033;text-decoration:none}
+.btn-ghost-light{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:12px;color:var(--muted)}
+
+/* features & cards */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:18px}
+.feature{background:var(--card);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);cursor:default}
+.feature:hover{border-color:rgba(0,194,168,0.12);transform:translateY(-6px);box-shadow:0 10px 30px rgba(0,0,0,0.45)}
+.showcase{height:260px;border-radius:12px;background:linear-gradient(135deg, rgba(0,194,168,0.06), rgba(110,231,255,0.04));display:flex;align-items:center;justify-content:center;font-weight:700;color:#cff6ee;cursor:pointer}
+.showcase:hover{transform:translateY(-4px);box-shadow:0 18px 48px rgba(0,194,168,0.06)}
+
+/* plot boxes */
+.plot-box{min-height:260px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));padding:8px;border:1px solid rgba(255,255,255,0.03)}
+
+/* forms */
+form label{display:inline-block;margin-right:12px;color:var(--muted)}
+input,select,textarea{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit}
+input:hover,button:hover{transform:translateY(-2px)}
+
+/* footer */
+footer{margin-top:36px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;color:var(--muted);font-size:13px}
+
+/* clickable markers: outline/glow for any clickable element */
+a, button, .card, .feature, .showcase {
+  cursor: pointer;
+}
+a:hover, button:hover, .card:hover, .feature:hover, .showcase:hover{
+  outline: 2px solid rgba(0,194,168,0.12);
+  box-shadow: 0 10px 30px rgba(0,194,168,0.06);
+}
+
+/* responsive */
+@media (min-width:920px){
+  .hero{grid-template-columns:1fr 420px}
+  h2{font-size:44px}
+}

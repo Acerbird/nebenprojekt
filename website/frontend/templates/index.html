@@ -1,0 +1,36 @@
+<!-- frontend/templates/index.html -->
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div class="hero-card">
+    <span class="eyebrow">Projekt</span>
+    <h2>Stromsystem verstehen — interaktiv & wissenschaftlich</h2>
+    <p class="lead">Interaktive Analysen, erklärende Artikel und simulationsbasierte Tools rund um das Thema Strommarkt und erneuerbare Energien.</p>
+
+    <div class="cta-row">
+      <a class="btn-primary" href="/analysis">Analysen entdecken</a>
+      <a class="btn-ghost-light" href="#learn">Mehr erfahren</a>
+      <span class="pill">Open Science</span>
+    </div>
+
+    <div class="features" id="learn">
+      <div class="feature">
+        <h3>Merit-Order</h3>
+        <p>Wie Preise durch die Reihenfolge der Einspeisung entstehen.</p>
+      </div>
+      <div class="feature">
+        <h3>Erneuerbare</h3>
+        <p>Einfluss von Wind, Sonne und Speichern auf Preis und Netzstabilität.</p>
+      </div>
+      <div class="feature">
+        <h3>Simulation</h3>
+        <p>Parameter anpassen – Beispielrechnungen live ausführen.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <div class="showcase">Visual: Netz / Wind / Solar</div>
+  </aside>
+</section>
+{% endblock %}

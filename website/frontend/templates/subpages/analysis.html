@@ -1,0 +1,64 @@
+<!-- frontend/templates/analysis.html -->
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Analysen</h2>
+  <p class="muted">Unten siehst du ein statisches Beispiel (Merit-Order) und ein interaktives Panel, das eine einfache Preis-Simulation aus dem Backend ausführt.</p>
+
+  <h3>Beispiel: Merit-Order (static / Plotly JSON)</h3>
+  <div id="merit-order" class="plot-box"></div>
+
+  <h3>Dynamische Simulation (Frontend → Backend)</h3>
+  <form id="sim-form">
+    <label>Windanteil (0–1): <input name="wind_share" type="number" step="0.01" value="0.25" min="0" max="1"></label>
+    <label>Solaranteil (0–1): <input name="solar_share" type="number" step="0.01" value="0.15" min="0" max="1"></label>
+    <label>Stunden: <input name="hours" type="number" value="48" min="1" max="168"></label>
+    <div style="margin-top:10px">
+      <button class="btn-primary" type="submit">Simulation starten</button>
+      <button class="btn-ghost-light" type="reset">Reset</button>
+    </div>
+  </form>
+
+  <div id="sim-result" class="plot-box" style="margin-top:18px;"></div>
+</section>
+
+<script>
+  // render merit-order with JSON from API
+  async function loadMeritOrder(){
+    const r = await fetch('/api/analysis/merit-order');
+    const data = await r.json();
+    // The backend returns a Plotly figure JSON; render it:
+    Plotly.react('merit-order', data['data'], data['layout']);
+  }
+  loadMeritOrder();
+
+  // simulation form submit
+  document.getElementById('sim-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const form = ev.target;
+    const fd = new FormData(form);
+    const params = new URLSearchParams();
+    for (const [k,v] of fd.entries()) params.append(k,v);
+
+    const res = await fetch('/api/analysis/run', {
+      method: 'POST',
+      body: params
+    });
+    const json = await res.json();
+    if (json.error){ alert(json.error); return; }
+
+    // build traces
+    const ts = json.timestamps;
+    const priceTrace = { x: ts, y: json.prices, mode: 'lines+markers', name: 'Preis (€/MWh)'};
+    const renTrace = { x: ts, y: json.renewable_fraction, mode: 'lines', name: 'Erneuerbarer Anteil', yaxis:'y2'};
+
+    const layout = {
+      title: 'Simulation: Preis & Erneuerbarer Anteil',
+      xaxis: {title:'Zeit'},
+      yaxis: {title:'Preis (€/MWh)'},
+      yaxis2: {title:'Erneuerbarer Anteil', overlaying:'y', side:'right', rangemode:'tozero'}
+    };
+    Plotly.react('sim-result', [priceTrace, renTrace], layout, {responsive:true});
+  });
+</script>
+{% endblock %}

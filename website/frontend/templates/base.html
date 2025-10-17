@@ -1,0 +1,45 @@
+<!-- frontend/templates/base.html -->
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Energiewende — {{ title if title else 'Start' }}</title>
+
+  <link href="/static/css/style.css" rel="stylesheet">
+  <!-- Plotly CDN (used in analysis page) -->
+  <script src="https://cdn.plot.ly/plotly-2.25.0.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">⚡</div>
+        <div>
+          <h1>Energiewende</h1>
+          <div class="kicker">Strommarkt & Erneuerbare — Analysen</div>
+        </div>
+      </div>
+
+      <nav>
+        <a href="/">Home</a>
+        <a href="/analysis">Analysen</a>
+        <a href="#">Stromsystem</a>
+        <a href="#">Erneuerbare</a>
+        <a href="#">Glossar</a>
+      </nav>
+    </header>
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+      <div>© Energiewende — Demo 2025</div>
+      <div class="muted">Quelle: Demo-Daten • Forschungsprojekt</div>
+    </footer>
+  </div>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
