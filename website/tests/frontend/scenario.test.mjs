@@ -10,10 +10,11 @@ import { beforeEach, describe, it } from "node:test";
 
 import { loadPage, historicalResult, syntheticResult } from "./helpers.mjs";
 
+const scenarioModule = await import("../../frontend/static/js/scenario.js");
 const {
   applySourceVisibility, buildDataNote, buildStatusText, formatDate,
   hoursHintText, readParams, restoreFromUrl, sourceHintText, MissingData,
-} = await import("../../frontend/static/js/scenario.js");
+} = scenarioModule;
 
 let form;
 
@@ -225,5 +226,120 @@ describe("Datumsdarstellung", () => {
   it("dreht ISO in die hier übliche Schreibweise", () => {
     assert.equal(formatDate("2026-09-18"), "18.09.2026");
     assert.equal(formatDate("2026-09-18T10:00+00:00"), "18.09.2026");
+  });
+});
+
+describe("Vergleich mit dem tatsächlichen Preis", () => {
+  const { buildValidationNote } = scenarioModule;
+
+  const mitValidierung = (overrides = {}) => historicalResult({
+    validation: {
+      hours_compared: 168, mean_model: 76.8, mean_actual: 177.9,
+      mean_absolute_error: 101.1, bias: -101.1, correlation: 0.638,
+      actual_price_eur_mwh: [100, 120, null, 90],
+      ...overrides,
+    },
+  });
+
+  it("bleibt leer, solange nichts zu vergleichen ist", () => {
+    assert.equal(buildValidationNote(syntheticResult()), "");
+    assert.equal(buildValidationNote(historicalResult()), "");
+  });
+
+  it("nennt beide Mittelwerte und die Abweichung", () => {
+    const html = buildValidationNote(mitValidierung());
+    assert.match(html, /76,8 €\/MWh/);
+    assert.match(html, /177,9 €\/MWh/);
+    assert.match(html, /101,1 €\/MWh/);
+  });
+
+  it("sagt, in welche Richtung das Modell danebenliegt", () => {
+    assert.match(buildValidationNote(mitValidierung()), /zu niedrig/);
+    assert.match(buildValidationNote(mitValidierung({ bias: 40 })), /zu hoch/);
+  });
+
+  it("übersetzt die Korrelation in eine Einschätzung", () => {
+    assert.match(buildValidationNote(mitValidierung({ correlation: 0.9 })), /trifft den Verlauf gut/);
+    assert.match(buildValidationNote(mitValidierung({ correlation: 0.638 })), /trifft den Verlauf grob/);
+    assert.match(buildValidationNote(mitValidierung({ correlation: 0.05 })), /trifft den Verlauf nicht/);
+  });
+
+  it("kommt ohne bestimmbare Korrelation aus", () => {
+    const html = buildValidationNote(mitValidierung({ correlation: null }));
+    assert.match(html, /nicht bestimmbar/);
+    assert.doesNotMatch(html, /null/);
+  });
+
+  it("nennt die Zahl der verglichenen Stunden", () => {
+    assert.match(buildValidationNote(mitValidierung()), /168/);
+  });
+});
+
+describe("Modelle im Vergleich", () => {
+  const { buildComparisonRows, buildComparisonTable } = scenarioModule;
+
+  const mitModellen = () => historicalResult({
+    validation: {
+      hours_compared: 72, mean_model: 76.8, mean_actual: 90.0,
+      mean_absolute_error: 26.4, bias: -13.2, correlation: 0.625,
+      actual_price_eur_mwh: [80, 95, 90],
+    },
+    forecasts: {
+      model_1: {
+        label: "Forecast-Modell 1", values: [78, 92, 91],
+        comparison: { hours_compared: 72, mean_absolute_error: 13.2, correlation: 0.93 },
+      },
+      model_2: {
+        label: "Forecast-Modell 2", values: [79, 93, 90],
+        comparison: { hours_compared: 72, mean_absolute_error: 11.8, correlation: 0.95 },
+      },
+    },
+  });
+
+  it("bleibt leer, wenn es nichts zu vergleichen gibt", () => {
+    assert.equal(buildComparisonTable(syntheticResult()), "");
+    assert.deepEqual(buildComparisonRows(historicalResult()), []);
+  });
+
+  it("führt das Merit-Order-Modell und beide Vorhersagen auf", () => {
+    const rows = buildComparisonRows(mitModellen());
+    assert.equal(rows.length, 3);
+    assert.deepEqual(rows.map((r) => r.id), ["merit", "model_1", "model_2"]);
+  });
+
+  it("nennt die Vorhersagemodelle nur bei ihrem Anzeigenamen", () => {
+    const html = buildComparisonTable(mitModellen());
+    assert.match(html, /Forecast-Modell 1/);
+    assert.match(html, /Forecast-Modell 2/);
+    // Die Funktionsweise gehört nicht in die Oberfläche.
+    assert.doesNotMatch(html, /LSTR|ARX|Regime|Regression/i);
+  });
+
+  it("hebt das genaueste Modell hervor", () => {
+    const html = buildComparisonTable(mitModellen());
+    const zeilen = html.split("<tr").filter((z) => z.includes("Forecast-Modell 2"));
+    assert.equal(zeilen.length, 1);
+    assert.match(zeilen[0], /is-best/);
+  });
+
+  it("hebt nichts hervor, wenn nur ein Modell dasteht", () => {
+    const nurMerit = historicalResult({
+      validation: { hours_compared: 24, mean_absolute_error: 20.0, correlation: 0.6,
+                    mean_model: 70, mean_actual: 80, bias: -10, actual_price_eur_mwh: [] },
+    });
+    assert.doesNotMatch(buildComparisonTable(nurMerit), /is-best/);
+  });
+
+  it("kommt mit fehlender Korrelation zurecht", () => {
+    const result = mitModellen();
+    result.forecasts.model_1.comparison.correlation = null;
+    const html = buildComparisonTable(result);
+    assert.doesNotMatch(html, /null/);
+  });
+
+  it("überspringt Vorhersagen ohne Vergleichswerte", () => {
+    const result = mitModellen();
+    delete result.forecasts.model_2.comparison;
+    assert.equal(buildComparisonRows(result).length, 2);
   });
 });

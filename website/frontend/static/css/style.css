@@ -27,6 +27,9 @@
   --s-braunkohle: #e34948;
   --s-steinkohle: #4a3aa7;
   --s-erdgas: #eb6834;
+  --s-speicher: #7d8fa6;
+  --s-forecast-1: #a34a2a;
+  --s-forecast-2: #c0338f;
 
   --radius: 12px;
   --radius-sm: 8px;
@@ -56,6 +59,9 @@
     --s-braunkohle: #e66767;
     --s-steinkohle: #9085e9;
     --s-erdgas: #d95926;
+    --s-speicher: #a3b3c7;
+    --s-forecast-1: #c97b57;
+    --s-forecast-2: #e06ab4;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
   }
 }
@@ -80,6 +86,9 @@
   --s-braunkohle: #e66767;
   --s-steinkohle: #9085e9;
   --s-erdgas: #d95926;
+  --s-speicher: #a3b3c7;
+  --s-forecast-1: #c97b57;
+  --s-forecast-2: #e06ab4;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
@@ -365,3 +374,37 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .footer-inner { display: flex; gap: 16px; justify-content: space-between; flex-wrap: wrap; }
 .site-footer a { color: var(--ink-2); }
+
+/* Vergleich des Modells mit dem tatsächlichen Börsenpreis. */
+.validation {
+  margin: -8px 0 28px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.validation strong { display: block; margin-bottom: 10px; font-size: 0.9rem; }
+.validation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+}
+.validation-grid div { display: flex; justify-content: space-between; gap: 12px; }
+.validation-grid dt { color: var(--ink-2); font-size: 0.8rem; }
+.validation-grid dd {
+  margin: 0; font-size: 0.8rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+
+/* Tabelle: Modelle im Vergleich mit dem tatsächlichen Preis. */
+.comparison { width: 100%; border-collapse: collapse; margin: 4px 0 8px; }
+.comparison th, .comparison td {
+  padding: 6px 8px; text-align: right; font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
+}
+.comparison thead th { color: var(--ink-2); font-weight: 500; font-size: 0.75rem; }
+.comparison tbody th { text-align: left; font-weight: 500; }
+.comparison td { font-variant-numeric: tabular-nums; }
+.comparison tbody tr:last-child th, .comparison tbody tr:last-child td { border-bottom: none; }
+.comparison tr.is-best td, .comparison tr.is-best th { font-weight: 600; color: var(--ink); }

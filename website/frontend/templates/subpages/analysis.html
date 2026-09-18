@@ -54,7 +54,7 @@
         <input type="range" id="co2_price" name="co2_price" min="0" max="250" step="5" value="{{ defaults.co2_price }}">
         <span class="range-value" data-for="co2_price" aria-hidden="true"></span>
       </div>
-      <span class="hint">€/t — ab ~53 € verdrängt Gas die Steinkohle, ab ~62 € die Braunkohle</span>
+      <span class="hint">€/t — ab ~57 € verdrängt Gas die Steinkohle, ab ~63 € die Braunkohle</span>
     </div>
 
     <div class="field">
@@ -127,9 +127,12 @@
 <figure class="chart" id="chart-price">
   <figcaption class="chart-head">
     <div class="chart-title">Börsenpreis</div>
-    <div class="chart-sub">Grenzkosten des jeweils letzten benötigten Blocks; negativ, wenn abgeregelt werden muss.</div>
+    <div class="chart-sub">Grenzkosten des jeweils letzten benötigten Blocks; negativ, wenn abgeregelt werden muss. Bei echten Messwerten steht der tatsächlich gezahlte Preis daneben.</div>
   </figcaption>
 </figure>
+
+<div class="validation" id="validation-note" hidden></div>
+<div class="validation" id="comparison-note" hidden></div>
 
 <section class="prose">
   <h2>Was das Modell rechnet — und was nicht</h2>
@@ -152,6 +155,20 @@
     Ausbaustand umrechnen. Der Kraftwerkspark auf der Erzeugungsseite bleibt dabei das
     vereinfachte Modell; die Zahlen sind also kein Nachbau des tatsächlichen Marktes,
     sondern zeigen, was das Modell aus echtem Wetter macht.
+  </p>
+  <p>
+    <strong>Speicher</strong> sind seit Kurzem abgebildet: Batterien und Pumpspeicher laden
+    in den billigsten Stunden und entladen in den teuersten. Das ist eine Faustregel, keine
+    Optimierung — aber genau so verdienen Speicherbetreiber am Markt ihr Geld. Der
+    Wirkungsgrad entscheidet mit: Wer 100 MWh einspeichert und 88 zurückbekommt, braucht
+    einen Preisabstand, der diesen Verlust deckt. Ist die Spreizung zu klein, bleibt der
+    Speicher stehen — auch das eine Aussage über das Stromsystem.
+  </p>
+  <p>
+    Biomasse und Laufwasser laufen als <strong>Must-Run</strong> durch. Sie lassen sich nicht
+    stündlich abstellen, deshalb werden bei Überschuss zuerst Wind und Photovoltaik
+    abgeregelt. Erst wenn selbst diese Grundlast die Nachfrage übersteigt, müssen auch sie
+    herunter — dann fällt der Preis besonders tief.
   </p>
   <p class="small muted">
     Alle Werte stammen aus der eigenen API

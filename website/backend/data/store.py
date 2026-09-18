@@ -30,6 +30,16 @@ CREATE TABLE IF NOT EXISTS observations (
 
 CREATE INDEX IF NOT EXISTS idx_observations_series_ts ON observations (series, ts);
 
+CREATE TABLE IF NOT EXISTS forecasts (
+    ts         INTEGER NOT NULL,      -- Unix-Sekunden, UTC
+    model      TEXT    NOT NULL,      -- Kennung des Modells, siehe forecasts.MODELS
+    value      REAL,                  -- vorhergesagter Preis in EUR/MWh
+    created_at INTEGER NOT NULL,      -- wann die Vorhersage gerechnet wurde
+    PRIMARY KEY (ts, model)
+) WITHOUT ROWID;
+
+CREATE INDEX IF NOT EXISTS idx_forecasts_model_ts ON forecasts (model, ts);
+
 CREATE TABLE IF NOT EXISTS fetch_log (
     series     TEXT    NOT NULL,      -- welche Zeitreihe
     week_start INTEGER NOT NULL,      -- Wochenbeginn in Unix-Sekunden
@@ -149,3 +159,44 @@ def coverage(conn: sqlite3.Connection, series: Optional[str] = None) -> Dict[str
 def database_size_bytes(path: Optional[str] = None) -> int:
     path = path or DEFAULT_PATH
     return os.path.getsize(path) if os.path.exists(path) else 0
+
+
+# ------------------------------------------------------- Preisvorhersagen
+
+def write_forecasts(conn: sqlite3.Connection, model: str,
+                    rows: Iterable[Tuple[int, Optional[float]]],
+                    created_at: Optional[int] = None) -> int:
+    """Vorhergesagte Preise ablegen; vorhandene Zeitpunkte werden überschrieben.
+
+    Ein neuer Lauf desselben Modells ersetzt seine früheren Werte — verglichen
+    wird immer gegen den jüngsten Stand.
+    """
+    import time as _time
+    stamp = created_at if created_at is not None else int(_time.time())
+    payload = [(ts, model, value, stamp) for ts, value in rows]
+    with conn:
+        conn.executemany(
+            "INSERT INTO forecasts (ts, model, value, created_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(ts, model) DO UPDATE SET value=excluded.value, "
+            "created_at=excluded.created_at", payload)
+    return len(payload)
+
+
+def read_forecast(conn: sqlite3.Connection, model: str,
+                  start_ts: int, end_ts: int) -> Dict[int, Optional[float]]:
+    """Vorhersage eines Modells für einen Zeitraum als {Zeitpunkt: Wert}."""
+    rows = conn.execute(
+        "SELECT ts, value FROM forecasts WHERE model = ? AND ts >= ? AND ts < ? "
+        "ORDER BY ts", (model, start_ts, end_ts)).fetchall()
+    return {row["ts"]: row["value"] for row in rows}
+
+
+def forecast_coverage(conn: sqlite3.Connection) -> Dict[str, Dict]:
+    """Welche Modelle liegen für welchen Zeitraum vor?"""
+    query = ("SELECT model, MIN(ts) AS first_ts, MAX(ts) AS last_ts, "
+             "COUNT(value) AS points, MAX(created_at) AS created_at "
+             "FROM forecasts WHERE value IS NOT NULL GROUP BY model ORDER BY model")
+    return {row["model"]: {
+        "first_ts": row["first_ts"], "last_ts": row["last_ts"],
+        "points": row["points"], "created_at": row["created_at"],
+    } for row in conn.execute(query).fetchall()}

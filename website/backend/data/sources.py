@@ -254,3 +254,49 @@ def historical_series(start_ts: int, hours: int,
         },
         display_timezone=timezone_name(),
     )
+
+
+def actual_prices(start_ts: int, hours: int,
+                  db_path: Optional[str] = None) -> Optional[List[Optional[float]]]:
+    """Tatsächliche Day-Ahead-Preise des Zeitraums, in Euro je MWh.
+
+    Gibt None zurück, wenn keine Preisreihe vorliegt — dann entfällt der
+    Vergleich einfach. Einzelne fehlende Stunden bleiben None und werden nicht
+    überbrückt: Für einen Vergleich zählt nur, was wirklich gemessen wurde.
+    """
+    from . import store
+
+    if not store.exists(db_path):
+        return None
+    stamps = [start_ts + h * 3600 for h in range(hours)]
+    with store.open_db(db_path) as conn:
+        raw = dict(store.read_series(conn, "price", start_ts, start_ts + hours * 3600))
+    if not any(raw.get(ts) is not None for ts in stamps):
+        return None
+    return [raw.get(ts) for ts in stamps]
+
+
+def model_forecasts(start_ts: int, hours: int,
+                    db_path: Optional[str] = None) -> Dict[str, List[Optional[float]]]:
+    """Vorberechnete Preisvorhersagen für den Zeitraum, je Modell.
+
+    Die Modelle rechnen außerhalb der Website (siehe forecasting/) und legen ihr
+    Ergebnis in derselben Datenbank ab. Hier wird nur gelesen — fehlt ein
+    Modell oder eine Stunde, bleibt der Platz leer.
+    """
+    from . import store
+
+    if not store.exists(db_path):
+        return {}
+    stamps = [start_ts + h * 3600 for h in range(hours)]
+    end_ts = start_ts + hours * 3600
+    out: Dict[str, List[Optional[float]]] = {}
+    with store.open_db(db_path) as conn:
+        for model in store.forecast_coverage(conn):
+            values = store.read_forecast(conn, model, start_ts, end_ts)
+            if not values:
+                continue
+            reihe = [values.get(ts) for ts in stamps]
+            if any(v is not None for v in reihe):
+                out[model] = reihe
+    return out

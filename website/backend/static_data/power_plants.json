@@ -1,51 +1,164 @@
 {
   "fuels": {
-    "braunkohle": {"label": "Braunkohle", "price_eur_per_mwh_th": 4.0, "emission_t_per_mwh_th": 0.399},
-    "steinkohle": {"label": "Steinkohle", "price_eur_per_mwh_th": 13.0, "emission_t_per_mwh_th": 0.335},
-    "erdgas":     {"label": "Erdgas",     "price_eur_per_mwh_th": 32.0, "emission_t_per_mwh_th": 0.201}
+    "braunkohle": {
+      "label": "Braunkohle",
+      "price_eur_per_mwh_th": 4.0,
+      "emission_t_per_mwh_th": 0.399
+    },
+    "steinkohle": {
+      "label": "Steinkohle",
+      "price_eur_per_mwh_th": 13.0,
+      "emission_t_per_mwh_th": 0.335
+    },
+    "erdgas": {
+      "label": "Erdgas",
+      "price_eur_per_mwh_th": 32.0,
+      "emission_t_per_mwh_th": 0.201
+    }
   },
   "categories": [
-    {"id": "wind",        "label": "Wind"},
-    {"id": "solar",       "label": "Photovoltaik"},
-    {"id": "sonstige_ee", "label": "Sonstige EE"},
-    {"id": "braunkohle",  "label": "Braunkohle"},
-    {"id": "steinkohle",  "label": "Steinkohle"},
-    {"id": "erdgas",      "label": "Erdgas"}
+    {
+      "id": "wind",
+      "label": "Wind"
+    },
+    {
+      "id": "solar",
+      "label": "Photovoltaik"
+    },
+    {
+      "id": "sonstige_ee",
+      "label": "Sonstige EE"
+    },
+    {
+      "id": "braunkohle",
+      "label": "Braunkohle"
+    },
+    {
+      "id": "steinkohle",
+      "label": "Steinkohle"
+    },
+    {
+      "id": "erdgas",
+      "label": "Erdgas"
+    },
+    {
+      "id": "speicher",
+      "label": "Speicher"
+    }
   ],
   "plants": [
     {
-      "id": "laufwasser", "name": "Laufwasser", "category": "sonstige_ee",
-      "kind": "must_run", "capacity_gw": 4.9, "marginal_cost": 1.0,
-      "note": "Läuft nahezu kostenlos durch, folgt dem Wasserdargebot."
+      "id": "laufwasser",
+      "name": "Laufwasser",
+      "category": "sonstige_ee",
+      "kind": "must_run",
+      "capacity_gw": 4.9,
+      "note": "Läuft nahezu kostenlos durch, folgt dem Wasserdargebot.",
+      "var_om_low": -500.0,
+      "var_om_high": 1.0
     },
     {
-      "id": "biomasse", "name": "Biomasse", "category": "sonstige_ee",
-      "kind": "must_run", "capacity_gw": 8.4, "marginal_cost": 45.0,
-      "note": "Brennstoffkosten machen Biomasse vergleichsweise teuer."
+      "id": "biomasse",
+      "name": "Biomasse",
+      "category": "sonstige_ee",
+      "kind": "must_run",
+      "capacity_gw": 8.4,
+      "note": "Brennstoffkosten machen Biomasse vergleichsweise teuer.",
+      "var_om_low": -200.0,
+      "var_om_high": 45.0
     },
     {
-      "id": "braunkohle", "name": "Braunkohle", "category": "braunkohle",
-      "kind": "thermal", "capacity_gw": 15.0, "efficiency": 0.38,
-      "fuel": "braunkohle", "var_om": 2.5,
-      "note": "Billiger Brennstoff, aber die höchsten CO₂-Emissionen je MWh."
+      "id": "braunkohle",
+      "name": "Braunkohle",
+      "category": "braunkohle",
+      "kind": "thermal",
+      "capacity_gw": 15.0,
+      "fuel": "braunkohle",
+      "note": "Billiger Brennstoff, aber die höchsten CO₂-Emissionen je MWh.",
+      "efficiency_high": 0.445,
+      "efficiency_low": 0.315,
+      "var_om_low": 2.5,
+      "var_om_high": 10.5
     },
     {
-      "id": "steinkohle", "name": "Steinkohle", "category": "steinkohle",
-      "kind": "thermal", "capacity_gw": 13.0, "efficiency": 0.42,
-      "fuel": "steinkohle", "var_om": 2.0,
-      "note": "Importbrennstoff, Weltmarktpreis schlägt direkt durch."
+      "id": "steinkohle",
+      "name": "Steinkohle",
+      "category": "steinkohle",
+      "kind": "thermal",
+      "capacity_gw": 13.0,
+      "fuel": "steinkohle",
+      "note": "Importbrennstoff, Weltmarktpreis schlägt direkt durch.",
+      "efficiency_high": 0.475,
+      "efficiency_low": 0.365,
+      "var_om_low": 2.0,
+      "var_om_high": 10.0
     },
     {
-      "id": "gud", "name": "Erdgas GuD", "category": "erdgas",
-      "kind": "thermal", "capacity_gw": 20.0, "efficiency": 0.58,
-      "fuel": "erdgas", "var_om": 1.5,
-      "note": "Hoher Wirkungsgrad — setzt bei hohem CO₂-Preis die Kohle unter Druck."
+      "id": "gud",
+      "name": "Erdgas GuD",
+      "category": "erdgas",
+      "kind": "thermal",
+      "capacity_gw": 20.0,
+      "fuel": "erdgas",
+      "note": "Hoher Wirkungsgrad — setzt bei hohem CO₂-Preis die Kohle unter Druck.",
+      "efficiency_high": 0.62,
+      "efficiency_low": 0.505,
+      "var_om_low": 1.5,
+      "var_om_high": 9.5
     },
     {
-      "id": "gasturbine", "name": "Gasturbine", "category": "erdgas",
-      "kind": "thermal", "capacity_gw": 11.0, "efficiency": 0.38,
-      "fuel": "erdgas", "var_om": 1.5,
-      "note": "Spitzenlast: schnell startbar, niedriger Wirkungsgrad, teuer."
+      "id": "gasturbine",
+      "name": "Gasturbine",
+      "category": "erdgas",
+      "kind": "thermal",
+      "capacity_gw": 11.0,
+      "fuel": "erdgas",
+      "note": "Spitzenlast: schnell startbar, niedriger Wirkungsgrad, teuer.",
+      "efficiency_high": 0.455,
+      "efficiency_low": 0.305,
+      "var_om_low": 1.5,
+      "var_om_high": 9.5
     }
-  ]
+  ],
+  "storage": [
+    {
+      "id": "batterie",
+      "name": "Batteriespeicher",
+      "category": "speicher",
+      "power_gw": 21.2,
+      "energy_gwh": 33.1,
+      "efficiency": 0.88,
+      "var_om": 1.0,
+      "note": "Viel Leistung, wenig Vorrat — gut für Stunden, nicht für Tage."
+    },
+    {
+      "id": "pumpspeicher",
+      "name": "Pumpspeicher",
+      "category": "speicher",
+      "power_gw": 9.9,
+      "energy_gwh": 40.0,
+      "efficiency": 0.75,
+      "var_om": 1.5,
+      "note": "Weniger Leistung, größerer Vorrat — überbrückt eine Nacht."
+    }
+  ],
+  "_quellen": {
+    "installierte_leistung": "Energy-Charts (Fraunhofer ISE): Batteriespeicher 21,2 GW / 33,1 GWh, Pumpspeicher 9,9 GW.",
+    "pumpspeicher_energie": "Rund 40 GWh nutzbarer Speicherinhalt — Größenordnung für Deutschland, nicht aus einer Einzelquelle belegt.",
+    "wirkungsgrade": "Übliche Werte: Batterie etwa 88 %, Pumpspeicher etwa 75 % über den vollen Lade- und Entladezyklus.",
+    "wirkungsgrad_bandbreiten": "Bandbreiten und Gebotsuntergrenzen nach tech_params.csv aus dem Projekt 'Forecasting Electricity Prices' (S. Hellbusch). Statt eines festen Wirkungsgrads je Block wird eine Spanne angesetzt — dadurch entsteht eine Angebotsrampe statt einer Treppenstufe.",
+    "gebotsuntergrenzen": "Erneuerbare bieten bis deutlich unter null, weil Einspeisevergütung den Weiterbetrieb auch bei negativen Preisen lohnend macht: Wasserkraft und Photovoltaik bis -500, Biomasse bis -200, Wind bis -70/-150 EUR/MWh."
+  },
+  "variable": {
+    "wind": {
+      "bid_low": -70.0,
+      "bid_high": 0.0,
+      "note": "Bietet bis weit unter null — Einspeisevergütung trägt den Betrieb."
+    },
+    "solar": {
+      "bid_low": -500.0,
+      "bid_high": 0.0,
+      "note": "Bietet noch tiefer als Wind, weil die Vergütung höher liegt."
+    }
+  }
 }

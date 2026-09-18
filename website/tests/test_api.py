@@ -146,15 +146,21 @@ class SimulateEndpointTest(ApiTestCase):
 
 
 class MeritOrderEndpointTest(ApiTestCase):
-    def test_bloecke_sind_nach_kosten_sortiert(self):
+    def test_bloecke_sind_nach_beginn_der_gebotsspanne_sortiert(self):
         blocks = self.json("/api/merit-order")["blocks"]
-        costs = [b["cost"] for b in blocks]
-        self.assertEqual(costs, sorted(costs))
+        starts = [b["cost_low"] for b in blocks]
+        self.assertEqual(starts, sorted(starts))
+
+    def test_jeder_block_liefert_seine_gebotsspanne(self):
+        for block in self.json("/api/merit-order")["blocks"]:
+            self.assertIn("cost_low", block)
+            self.assertIn("cost_high", block)
+            self.assertLessEqual(block["cost_low"], block["cost_high"], block["id"])
 
     def test_jeder_block_hat_die_felder_fuer_die_darstellung(self):
         for block in self.json("/api/merit-order")["blocks"]:
-            for key in ("id", "name", "category", "cost", "capacity_gw",
-                        "from_gw", "to_gw", "emission", "note"):
+            for key in ("id", "name", "category", "cost", "cost_low", "cost_high",
+                        "capacity_gw", "from_gw", "to_gw", "emission", "note"):
                 self.assertIn(key, block, block.get("id"))
 
     def test_co2_preis_verschiebt_die_reihenfolge(self):

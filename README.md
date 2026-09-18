@@ -122,6 +122,11 @@ Parameter von `/api/simulate`: `wind_gw`, `solar_gw`, `co2_price`, `gas_price`,
 begrenzt, nicht abgelehnt. Das eingestellte Szenario steht auf der Analyseseite
 in der Adresszeile und ist damit teilbar.
 
+Die Antwort von `/api/simulate` enthält zusätzlich `storage` (Lade- und
+Entladeplan je Anlage samt Zyklen und Preisschwellen) sowie bei echten
+Messwerten `validation` mit dem Vergleich zum tatsächlichen Börsenpreis und
+`forecasts` mit den vorberechneten Vorhersagen samt eigener Fehlerkennzahlen.
+
 Bei `source=historical` gilt die gemessene Last. Nur wenn `peak_load_gw`
 ausdrücklich mitgegeben wird, streckt das Modell die gemessene Kurve auf diesen
 Wert — damit lässt sich zusätzlicher Verbrauch durch Wärmepumpen und E-Autos
@@ -134,13 +139,75 @@ einem Hinweis — und nicht etwa still mit erzeugten Profilen.
 
 Grenzkosten je Kraftwerksblock ergeben sich aus Brennstoffpreis geteilt durch
 Wirkungsgrad, CO₂-Kosten (Emissionsfaktor × Zertifikatspreis / Wirkungsgrad) und
-variablen Betriebskosten. Die Last wird Stunde für Stunde von den günstigsten
-verfügbaren Blöcken gedeckt; der Preis ist der des letzten benötigten Blocks.
-Muss erneuerbare Leistung abgeregelt werden, fällt der Preis unter null.
+variablen Betriebskosten. Die Last wird Stunde für Stunde gedeckt; der Preis ist
+der des letzten benötigten Blocks.
 
-Nicht abgebildet: Speicher, Import und Export, Mindestlasten, An- und Abfahrkosten,
-Kraft-Wärme-Kopplung, Netzengpässe. Die Ergebnisse sind Größenordnungen zum
-Verstehen der Mechanik — keine Prognose.
+### Gebotsspannen statt Treppenstufen
+
+Ein Kraftwerkspark besteht nicht aus einem Block je Technologie, sondern aus
+vielen Anlagen unterschiedlichen Alters. Deshalb bietet jede Technologie in
+einer **Spanne** an: Der modernste Gasblock bietet zum unteren Preis, der
+älteste zum oberen. Aus der Treppenstufe wird eine Rampe, und aus der
+Merit-Order eine Kurve statt einer Treppe.
+
+Bei Anlagen ohne Brennstoffkosten beschreibt die Spanne kein Wirkungsgrad-,
+sondern ein Gebotsverhalten: Wer Einspeisevergütung bekommt, bietet auch bei
+deutlich negativen Preisen noch an, statt abzuschalten — Photovoltaik und
+Laufwasser bis −500 €/MWh, Biomasse bis −200, Wind bis −70.
+
+Gesucht wird dann der Preis, bei dem das gesamte Angebot die Nachfrage deckt
+(Intervallhalbierung über die Angebotskurve). Mehrere Dinge, die vorher
+Sonderfälle mit festen Konstanten waren, ergeben sich daraus von selbst:
+
+* Biomasse und Laufwasser laufen bei negativen Preisen weiter, weil ihr Gebot
+  so weit hinunterreicht.
+* Bei Überschuss fällt der Preis in den Gebotsbereich von Wind und
+  Photovoltaik, und genau der überzählige Teil wird abgeregelt.
+* Je größer der Überschuss, desto tiefer der Preis — ohne dass irgendwo ein
+  fester Wert dafür hinterlegt wäre.
+
+Der Unterschied ist messbar: Über eine Woche entstehen so rund 160 verschiedene
+Preise statt vier, und die Korrelation mit dem tatsächlichen Börsenpreis steigt
+von 0,64 auf 0,68.
+
+Die Wirkungsgrad-Bandbreiten und Gebotsuntergrenzen stammen aus `tech_params.csv`
+des Forschungsprojekts *Forecasting Electricity Prices* (S. Hellbusch).
+
+### Speicher
+
+Batterien und Pumpspeicher laden in den billigsten Stunden und entladen in den
+teuersten — eine nachvollziehbare Faustregel statt einer Optimierung, aber genau
+so verdienen Speicherbetreiber am Markt ihr Geld. Zwei Dinge begrenzen den
+Einsatz: der Wirkungsgrad (wer 100 MWh einspeichert und 88 zurückbekommt,
+braucht einen Preisabstand, der den Verlust deckt) und der Vorrat (ein
+Batteriespeicher mit 1,6 Stunden Volllast überbrückt einen Abend, keine
+Dunkelflaute). Ist die Spreizung zu klein, bleibt der Speicher stehen — auch das
+ist eine Aussage über das Stromsystem.
+
+Weil Speicher Stunden miteinander verknüpft, rechnet das Modell zweimal: erst
+die Preise ohne ihn als Entscheidungsgrundlage, dann den Einsatz mit ihm. Die
+Vereinfachung dabei: Der Speicher plant anhand der Preise, die ohne ihn
+entstanden wären, und sieht seine eigene Wirkung nicht voraus. Er startet leer
+und kann deshalb nur abgeben, was er im betrachteten Zeitraum aufgenommen hat.
+
+### Prüfstein: Modell gegen Wirklichkeit
+
+Bei echten Messwerten stellt die Analyseseite den gerechneten Preis neben den
+tatsächlich gezahlten Day-Ahead-Preis und weist drei Kennzahlen aus: die
+mittlere Abweichung, die Verzerrung (rechnet das Modell systematisch zu hoch
+oder zu tief?) und die Korrelation.
+
+Das Ergebnis ist unbequem und genau deshalb lehrreich. Für eine Septemberwoche
+2026 liegt die Korrelation bei etwa 0,68 — der Verlauf stimmt also grob —,
+während das Preisniveau um rund 99 €/MWh zu niedrig herauskommt. Ein höherer
+Gaspreis schließt die Lücke nicht, sondern verschlechtert die Korrelation. Der
+Grund liegt tiefer: Der hinterlegte Kraftwerkspark ist zu groß und zu billig,
+und Knappheitsaufschläge kennt das Modell nicht. Wer das Modell verbessern will,
+hat hier eine messbare Zielgröße.
+
+Nicht abgebildet: Import und Export, Mindestlasten thermischer Blöcke, An- und
+Abfahrkosten, Kraft-Wärme-Kopplung, Netzengpässe. Die Ergebnisse sind
+Größenordnungen zum Verstehen der Mechanik — keine Prognose.
 
 ### Woher die Zeitreihen kommen
 
@@ -185,6 +252,47 @@ einer in Bielefeld.
 Die Regionseinstellungen stehen in `backend/region.py` — Zeitzone, SMARD-Kürzel
 und Währung an einer Stelle, vorbereitet für weitere Länder.
 
+## Preisvorhersage
+
+Neben dem Merit-Order-Modell stehen zwei eigenständige Vorhersagemodelle zur
+Verfügung, die auf der Analyseseite als **Forecast-Modell 1** und **Forecast-Modell 2**
+erscheinen. Sie stammen aus einem getrennten Forschungsprojekt und werden hier
+nur benutzt; ihre Funktionsweise gehört nicht in die Oberfläche.
+
+Sie laufen **außerhalb der Website**, im Ordner `forecasting/` mit eigener
+virtueller Umgebung. Das ist keine Sparsamkeit um ihrer selbst willen: Die
+Modelle brauchen pandas, numpy, scipy, statsmodels und scikit-learn, und
+Modell 2 rechnet rund zwei Minuten für einen einzigen Tag. Zur Laufzeit einer
+Webseite ist das unmöglich — einmal vorberechnet ist es sofort da. Die Website
+liest nur das Ergebnis aus der Datenbank und bleibt bei FastAPI, Uvicorn und
+Jinja2.
+
+```bash
+cd website
+/usr/bin/python3 -m venv forecasting/.venv
+forecasting/.venv/bin/pip install -r forecasting/requirements.txt
+
+forecasting/.venv/bin/python -m forecasting.run_forecast --model 1 --from 2025-06-01 --days 30
+forecasting/.venv/bin/python -m forecasting.run_forecast --status
+```
+
+Die Paketversionen sind auf den Stand des Forschungsprojekts festgelegt, damit
+hier dieselben Zahlen herauskommen wie dort. Vor langen Läufen fragt das
+Programm nach — ein Jahr mit Modell 2 wären rund zwölf Stunden.
+
+Liegen für einen Zeitraum Vorhersagen vor, zeigt die Analyseseite sie als
+weitere Linien neben dem Modellpreis und stellt alle Modelle in einer Tabelle
+dem tatsächlich gezahlten Preis gegenüber. Der Vergleich ist der eigentliche
+Gewinn: Ein Modell, das den Kraftwerkseinsatz nachrechnet, und eines, das aus
+der Vergangenheit lernt, liegen erkennbar unterschiedlich nah am Markt.
+
+> **Vor einer Veröffentlichung zu klären.** Die Trainingsdaten unter
+> `forecasting/data/` enthalten lizenzierte Commodity-Preise (Refinitiv/LSEG)
+> und liegen deshalb nicht im Repository. Ob der Modellcode selbst öffentlich
+> werden darf, hängt außerdem am laufenden Publikationsverfahren des
+> Forschungsprojekts. Beides ist offen und muss entschieden sein, bevor diese
+> Seite online geht.
+
 ## Datenquellen
 
 | Was | Quelle | Hinweis |
@@ -221,6 +329,12 @@ website/
 │   ├── requirements.txt        Laufzeit: FastAPI, Uvicorn, Jinja2
 │   └── requirements-dev.txt    zusätzlich httpx für die HTTP-Tests
 ├── package.json                nur für die Frontend-Tests (jsdom)
+├── forecasting/                Preisvorhersage, getrennt von der Website
+│   ├── run_forecast.py         rechnet Vorhersagen in die Datenbank
+│   ├── config.py               Einstellungen beider Modelle
+│   ├── models/, utils/         die Modelle selbst
+│   ├── requirements.txt        pandas, numpy, scipy, statsmodels, scikit-learn
+│   └── data/                   Trainingsdaten (nicht versioniert)
 └── frontend/
     ├── templates/              Jinja2-Templates
     └── static/
@@ -239,3 +353,11 @@ Die Serienfarben liegen als CSS-Variablen in `style.css` und folgen automatisch
 dem Hell-/Dunkel-Modus. Die Zuordnung ist gegen Farbfehlsichtigkeit geprüft —
 benachbarte Kategorien halten in beiden Modi genügend Abstand. Wer die Farben
 ändert, sollte das erneut prüfen und nicht nur nach Augenmaß entscheiden.
+
+Das Prüfverfahren für die zuletzt ergänzte Kategorie „Speicher": sRGB in den
+LMS-Raum umrechnen, die drei Dichromasien simulieren, in CIELAB zurückrechnen
+und die paarweisen Abstände messen. Gewählt wurde die Kandidatenfarbe mit dem
+größten *kleinsten* Abstand zu allen bestehenden Farben — in beiden Modi und
+unter allen drei Sehschwächen. Der erreichte Wert liegt über dem kleinsten
+Abstand, den die bisherigen Farben untereinander haben, verschlechtert die Lage
+also nicht.

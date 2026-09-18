@@ -1,0 +1,72 @@
+"""Konfiguration der beiden Preisvorhersage-Modelle.
+
+Die Modelle stammen aus einem eigenständigen Forschungsprojekt. Nach außen
+heißen sie schlicht "Forecast-Modell 1" und "Forecast-Modell 2" — wer die
+Website benutzt, muss ihre Funktionsweise nicht kennen.
+
+Die Einstellungen von Modell 2 entsprechen dem dort zuletzt gerechneten Lauf.
+Sie hier zu verändern heißt, ein anderes Modell zu rechnen als dort.
+"""
+
+import os
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+TRAINING_DATA = os.path.join(DATA_DIR, "model_df_hour_20181001_20260101.csv.gz")
+
+# Kennungen, unter denen die Vorhersagen in der Datenbank liegen.
+MODEL_1 = "model_1"
+MODEL_2 = "model_2"
+
+MODELS = {
+    MODEL_1: {
+        "label": "Forecast-Modell 1",
+        "hint": "statistisches Modell auf Preishistorie, Brennstoffpreisen und Kalender",
+        "seconds_per_day": 1,
+    },
+    MODEL_2: {
+        "label": "Forecast-Modell 2",
+        "hint": "nichtlineares Regimemodell — rechnet deutlich länger, trifft etwas besser",
+        "seconds_per_day": 120,
+    },
+}
+
+# Einstellungen von Modell 2, übernommen aus dem letzten Lauf des
+# Forschungsprojekts. Ohne sie rechnet das Modell etwas anderes.
+MODEL_2_FEATURES = {
+    "load_wind_solar": True,
+    "residual_load": True,
+    "residual_load_lags": None,
+    "residual_load_lags_mean": False,
+    "residual_load_change": [1, 2],
+    "residual_load_share": False,
+    "residual_load_share_powers": False,
+    "fuels_separate": False,
+    "fuels_adjusted": True,
+    "no_oil": True,
+    "fuels_combined": False,
+    "imports_exports": True,
+    "hour_dummies": False,
+    "month_dummies": False,
+    "weekday_dummies": False,
+    "workday_dummy": True,
+    "seasonality_continuous_dummy": True,
+}
+
+MODEL_2_SETTINGS = {
+    "training_period": 1095,
+    "z_name": "Residual Load",
+    "z2_name": "Gas Adj d-2",
+    "z_as_feature": False,
+    "z2_as_feature": True,
+    "multiply_g1_into_g2": True,
+    "g2_gate": "softmin",
+    "softmin_k": 4.0,
+    "normalize_features": True,
+    "z2_norm_window_days": 365,
+    "add_intercept": True,
+}
+
+MODEL_1_SETTINGS = {
+    "training_period": 84,
+    "max_price_lag": 14,
+}

@@ -7,8 +7,9 @@
 
 import { renderChart, fmt, formatHour, DEFAULT_TIMEZONE } from "./charts.js";
 import {
-  MissingData, applySourceVisibility, buildDataNote, buildStatusText,
-  formatDate, hoursHintText, readParams, restoreFromUrl, sourceHintText,
+  MissingData, applySourceVisibility, buildComparisonTable, buildDataNote,
+  buildStatusText, buildValidationNote, formatDate, hoursHintText, readParams,
+  restoreFromUrl, sourceHintText,
 } from "./scenario.js";
 
 const form = document.getElementById("sim-form");
@@ -92,6 +93,10 @@ function renderKpis(result) {
     kpiTile("CO₂-Ausstoß", fmt.plain(k.emissions_kt, 0), "kt", `${fmt.plain(k.emission_intensity_g_kwh, 0)} g/kWh`),
     kpiTile("Abgeregelt", fmt.plain(k.curtailed_gwh, 0), "GWh", `in ${k.surplus_hours} von ${result.params.hours} Stunden`),
     kpiTile("Negative Preise", fmt.plain(k.negative_price_hours, 0), "h", k.scarcity_hours ? `${k.scarcity_hours} h Unterdeckung` : "keine Unterdeckung"),
+    kpiTile("Speicher", fmt.plain(k.storage_discharged_gwh, 0), "GWh",
+            k.storage_discharged_gwh > 0
+              ? `${fmt.plain(k.storage_losses_gwh, 0)} GWh Verluste`
+              : "Preisabstand zu klein"),
   ].join("");
 }
 
@@ -121,7 +126,7 @@ function renderMeritOrder(payload, meanResidual) {
 
 function renderGeneration(result) {
   const tz = result.display_timezone || DEFAULT_TIMEZONE;
-  const order = ["wind", "solar", "sonstige_ee", "braunkohle", "steinkohle", "erdgas"];
+  const order = ["wind", "solar", "sonstige_ee", "speicher", "braunkohle", "steinkohle", "erdgas"];
   const labels = Object.fromEntries(result.categories.map((c) => [c.id, c.label]));
   renderChart(document.getElementById("chart-generation"), {
     type: "stack",
@@ -148,14 +153,35 @@ function renderGeneration(result) {
 
 function renderPrice(result) {
   const tz = result.display_timezone || DEFAULT_TIMEZONE;
+  const validation = result.validation;
+  // Bei echten Messwerten liegt der tatsächlich gezahlte Preis daneben — der
+  // ehrlichste Prüfstein für das Modell.
+  const series = [{
+    id: "price", label: validation ? "Modell" : "Börsenpreis", color: "var(--accent)",
+    values: result.price_eur_mwh, fill: !validation,
+  }];
+  if (validation) {
+    series.push({
+      id: "actual", label: "tatsächlich (SMARD)", color: "var(--ink-2)",
+      values: validation.actual_price_eur_mwh, dashed: true,
+    });
+  }
+  // Vorberechnete Vorhersagen, sofern für diesen Zeitraum welche vorliegen.
+  const forecasts = result.forecasts || {};
+  Object.keys(forecasts).sort().forEach((model, index) => {
+    series.push({
+      id: model,
+      label: forecasts[model].label,
+      color: `var(--s-forecast-${index + 1}, var(--ink-2))`,
+      values: forecasts[model].values,
+      dashed: true,
+    });
+  });
   renderChart(document.getElementById("chart-price"), {
     type: "line",
-    title: "Börsenpreis",
+    title: validation ? "Börsenpreis: Modell und Wirklichkeit" : "Börsenpreis",
     x: result.timestamps,
-    series: [{
-      id: "price", label: "Börsenpreis", color: "var(--accent)",
-      values: result.price_eur_mwh, fill: true,
-    }],
+    series,
     formatX: (iso) => formatHour(iso, tz),
     formatY: (v) => fmt.plain(v, 0),
     formatValue: (v) => fmt.eur(v),
@@ -165,6 +191,21 @@ function renderPrice(result) {
     height: 240,
     ariaLabel: "Börsenpreis je Stunde in Euro pro Megawattstunde.",
   });
+}
+
+/** Wie nah kommt das Modell an den tatsächlich gezahlten Preis? */
+function renderValidation(result) {
+  const box = document.getElementById("validation-note");
+  if (!box) return;
+  const text = buildValidationNote(result);
+  box.innerHTML = text;
+  box.hidden = text === "";
+
+  const vergleich = document.getElementById("comparison-note");
+  if (!vergleich) return;
+  const tabelle = buildComparisonTable(result);
+  vergleich.innerHTML = tabelle;
+  vergleich.hidden = tabelle === "";
 }
 
 function setBusy(busy) {
@@ -198,6 +239,7 @@ async function run() {
     renderGeneration(simulation);
     renderPrice(simulation);
     renderDataNote(simulation);
+    renderValidation(simulation);
 
     statusLine.textContent = buildStatusText(simulation);
 

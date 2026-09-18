@@ -263,12 +263,25 @@ function drawTimeChart(spec, plot, tooltip, width) {
         d += ` L ${xScale(n - 1)} ${yScale(Math.max(yLo, 0))} Z`;
         el("path", { d, fill: s.color, "fill-opacity": 0.12 }, body);
       }
-      let d = `M ${xScale(0)} ${yScale(s.values[0])}`;
-      for (let i = 1; i < n; i++) d += ` L ${xScale(i)} ${yScale(s.values[i])}`;
-      el("path", {
+      // Lücken in den Daten unterbrechen die Linie, statt sie durch null zu
+      // ziehen: Eine fehlende Messstunde ist keine Messung von null.
+      let d = "";
+      let pendingMove = true;
+      for (let i = 0; i < n; i++) {
+        const value = s.values[i];
+        if (value === null || value === undefined || Number.isNaN(value)) {
+          pendingMove = true;
+          continue;
+        }
+        d += `${pendingMove ? "M" : " L"} ${xScale(i)} ${yScale(value)}`;
+        pendingMove = false;
+      }
+      const attrs = {
         d, fill: "none", stroke: s.color, "stroke-width": 2,
         "stroke-linejoin": "round", "stroke-linecap": "round",
-      }, body);
+      };
+      if (s.dashed) attrs["stroke-dasharray"] = "6 4";
+      el("path", attrs, body);
     }
   }
 

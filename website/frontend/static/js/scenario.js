@@ -141,3 +141,90 @@ export function restoreFromUrl(form, search) {
   }
   return query;
 }
+
+/**
+ * Wie nah kommt das Modell an den tatsächlich gezahlten Börsenpreis?
+ *
+ * Gibt HTML zurück, weil die Kennzahlen als kleine Tabelle klarer lesbar sind
+ * als im Fließtext. Bei erzeugten Profilen gibt es nichts zu vergleichen —
+ * dann bleibt die Zeichenkette leer.
+ *
+ * Die Korrelation steht bewusst gleichberechtigt neben der Abweichung: Ein
+ * Lernmodell mit sechs Kraftwerksblöcken wird das Preisniveau kaum treffen.
+ * Ob es den Verlauf trifft, ist die interessantere Frage.
+ */
+export function buildValidationNote(result) {
+  const v = result && result.validation;
+  if (!v) return "";
+
+  const zahl = (wert, stellen = 1) => fmt.plain(wert, stellen);
+  const richtung = v.bias < 0 ? "zu niedrig" : "zu hoch";
+  const guete = v.correlation === null ? "nicht bestimmbar"
+    : v.correlation > 0.8 ? "trifft den Verlauf gut"
+    : v.correlation > 0.5 ? "trifft den Verlauf grob"
+    : v.correlation > 0.2 ? "trifft den Verlauf nur schwach"
+    : "trifft den Verlauf nicht";
+
+  return `
+    <strong>Modell gegen Wirklichkeit</strong>
+    <dl class="validation-grid">
+      <div><dt>Modell im Mittel</dt><dd>${zahl(v.mean_model)} €/MWh</dd></div>
+      <div><dt>tatsächlich</dt><dd>${zahl(v.mean_actual)} €/MWh</dd></div>
+      <div><dt>mittlere Abweichung</dt><dd>${zahl(v.mean_absolute_error)} €/MWh</dd></div>
+      <div><dt>Verzerrung</dt><dd>${zahl(Math.abs(v.bias))} €/MWh ${richtung}</dd></div>
+      <div><dt>Korrelation</dt><dd>${v.correlation === null ? "–" : zahl(v.correlation, 2)} — ${guete}</dd></div>
+      <div><dt>verglichene Stunden</dt><dd>${v.hours_compared}</dd></div>
+    </dl>`;
+}
+
+/**
+ * Vergleichstabelle: Merit-Order-Modell und die Vorhersagemodelle nebeneinander,
+ * gemessen am tatsächlich gezahlten Preis.
+ *
+ * Der interessante Punkt für Lesende ist nicht, welches Modell gewinnt, sondern
+ * wie unterschiedlich gut zwei ganz verschiedene Herangehensweisen treffen: ein
+ * Modell, das den Kraftwerkseinsatz nachrechnet, und eines, das aus der
+ * Vergangenheit lernt.
+ */
+export function buildComparisonRows(result) {
+  const rows = [];
+  if (result && result.validation) {
+    rows.push({ id: "merit", label: "Merit-Order-Modell", ...kennzahlen(result.validation) });
+  }
+  const forecasts = (result && result.forecasts) || {};
+  for (const model of Object.keys(forecasts).sort()) {
+    const entry = forecasts[model];
+    if (entry.comparison) {
+      rows.push({ id: model, label: entry.label, ...kennzahlen(entry.comparison) });
+    }
+  }
+  return rows;
+}
+
+function kennzahlen(vergleich) {
+  return {
+    error: vergleich.mean_absolute_error,
+    correlation: vergleich.correlation,
+    hours: vergleich.hours_compared,
+  };
+}
+
+/** Die Vergleichstabelle als HTML; leer, wenn es nichts zu vergleichen gibt. */
+export function buildComparisonTable(result) {
+  const rows = buildComparisonRows(result);
+  if (rows.length === 0) return "";
+  const beste = Math.min(...rows.map((r) => r.error));
+  const zeilen = rows.map((r) => `
+      <tr${r.error === beste && rows.length > 1 ? ' class="is-best"' : ""}>
+        <th scope="row">${r.label}</th>
+        <td>${fmt.plain(r.error, 1)}</td>
+        <td>${r.correlation === null ? "–" : fmt.plain(r.correlation, 2)}</td>
+      </tr>`).join("");
+  return `
+    <strong>Modelle im Vergleich mit dem tatsächlichen Preis</strong>
+    <table class="comparison">
+      <thead><tr><th scope="col">Modell</th><th scope="col">Abweichung</th><th scope="col">Korrelation</th></tr></thead>
+      <tbody>${zeilen}</tbody>
+    </table>
+    <p class="small muted">Abweichung in €/MWh, im Mittel über ${rows[0].hours} Stunden. Je kleiner, desto näher am Markt; die Korrelation sagt, ob der Verlauf stimmt.</p>`;
+}

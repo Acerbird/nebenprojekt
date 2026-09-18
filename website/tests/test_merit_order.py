@@ -18,7 +18,13 @@ def plant(plant_id):
 
 
 def cost(plant_id, co2_price, gas_price=GAS_PRICE):
+    """Mittlere Grenzkosten der Gebotsspanne."""
     return anl.marginal_cost(plant(plant_id), co2_price, gas_price)
+
+
+def span(plant_id, co2_price, gas_price=GAS_PRICE):
+    """Gebotsspanne (unteres und oberes Ende) eines Blocks."""
+    return anl.block_costs(plant(plant_id), co2_price, gas_price)
 
 
 def switch_point(cheap_id, expensive_id, gas_price=GAS_PRICE, low=0.0, high=300.0):
@@ -35,9 +41,19 @@ def switch_point(cheap_id, expensive_id, gas_price=GAS_PRICE, low=0.0, high=300.
 class MarginalCostTest(unittest.TestCase):
     """Grenzkosten = Brennstoff/Wirkungsgrad + CO₂-Kosten/Wirkungsgrad + var. Betriebskosten."""
 
-    def test_formel_stimmt_fuer_gud(self):
-        expected = 32.0 / 0.58 + 80.0 * 0.201 / 0.58 + 1.5
-        self.assertAlmostEqual(cost("gud", 80.0), expected, places=2)
+    def test_formel_stimmt_an_beiden_enden_der_spanne(self):
+        """Unteres Ende beim besten Wirkungsgrad, oberes beim schlechtesten."""
+        gud = plant("gud")
+        brennstoff = 32.0 + 80.0 * 0.201          # €/MWh thermisch inklusive CO₂
+        low, high = span("gud", 80.0)
+        self.assertAlmostEqual(low, brennstoff / gud["efficiency_high"] + gud["var_om_low"], places=2)
+        self.assertAlmostEqual(high, brennstoff / gud["efficiency_low"] + gud["var_om_high"], places=2)
+
+    def test_spanne_ist_geordnet_und_nicht_leer(self):
+        """Ein Kraftwerkspark hat alte und neue Anlagen — daher eine Spanne."""
+        for plant_id in ("braunkohle", "steinkohle", "gud", "gasturbine"):
+            low, high = span(plant_id, 80.0)
+            self.assertLess(low, high, plant_id)
 
     def test_hoeherer_wirkungsgrad_senkt_kosten_und_emissionen(self):
         # GuD und Gasturbine verbrennen denselben Brennstoff, nur unterschiedlich gut.
@@ -84,12 +100,17 @@ class FuelSwitchTest(unittest.TestCase):
     def test_gas_vor_steinkohle_bei_hohem_co2_preis(self):
         self.assertLess(cost("gud", 70.0), cost("steinkohle", 70.0))
 
-    def test_umschlagpunkt_steinkohle_gas_liegt_bei_53_euro(self):
-        # Steht als Hinweis am CO₂-Regler der Analyseseite.
-        self.assertAlmostEqual(switch_point("steinkohle", "gud"), 52.6, delta=1.0)
+    def test_umschlagpunkt_steinkohle_gas_liegt_bei_rund_50_euro(self):
+        # Steht als Hinweis am CO₂-Regler der Analyseseite. Seit die Blöcke in
+        # Spannen bieten, verschiebt sich der Punkt etwas — verglichen wird die
+        # Mitte der jeweiligen Spanne.
+        self.assertAlmostEqual(switch_point("steinkohle", "gud"), 57.0, delta=3.0)
 
-    def test_umschlagpunkt_braunkohle_gas_liegt_bei_62_euro(self):
-        self.assertAlmostEqual(switch_point("braunkohle", "gud"), 62.0, delta=1.0)
+    def test_umschlagpunkt_braunkohle_gas_liegt_darueber(self):
+        """Braunkohle hält länger durch als Steinkohle: billiger Brennstoff,
+        aber die höchsten Emissionen."""
+        self.assertGreater(switch_point("braunkohle", "gud"),
+                           switch_point("steinkohle", "gud"))
 
     def test_teures_gas_verschiebt_den_umschlagpunkt_nach_oben(self):
         """Gaskrise 2022: teures Gas hält die Kohle trotz CO₂-Preis im Geld."""
@@ -102,9 +123,16 @@ class MeritOrderStructureTest(unittest.TestCase):
         self.blocks = anl.merit_order(co2_price=80.0, gas_price=32.0,
                                       wind_gw=70.0, solar_gw=90.0)
 
-    def test_nach_grenzkosten_sortiert(self):
-        costs = [b["cost"] for b in self.blocks]
-        self.assertEqual(costs, sorted(costs))
+    def test_nach_beginn_der_gebotsspanne_sortiert(self):
+        """Die Spannen überlappen sich — sortiert wird nach ihrem Beginn."""
+        starts = [b["cost_low"] for b in self.blocks]
+        self.assertEqual(starts, sorted(starts))
+
+    def test_jeder_block_hat_eine_geordnete_spanne(self):
+        for block in self.blocks:
+            self.assertLessEqual(block["cost_low"], block["cost_high"], block["id"])
+            self.assertLessEqual(block["cost_low"], block["cost"], block["id"])
+            self.assertLessEqual(block["cost"], block["cost_high"], block["id"])
 
     def test_kumulation_ist_lueckenlos(self):
         previous_to = 0.0
@@ -114,10 +142,18 @@ class MeritOrderStructureTest(unittest.TestCase):
                                    block["capacity_gw"], places=2)
             previous_to = block["to_gw"]
 
-    def test_erneuerbare_stehen_ohne_grenzkosten_am_anfang(self):
-        first_two = {b["id"] for b in self.blocks[:2]}
-        self.assertEqual(first_two, {"wind", "solar"})
-        self.assertEqual([b["cost"] for b in self.blocks[:2]], [0.0, 0.0])
+    def test_erneuerbare_bieten_unter_null(self):
+        """Wer Einspeisevergütung bekommt, bietet auch bei negativen Preisen an,
+        statt abzuschalten — deshalb gibt es überhaupt negative Börsenpreise."""
+        by_id = {b["id"]: b for b in self.blocks}
+        for block_id in ("wind", "solar"):
+            self.assertLess(by_id[block_id]["cost_low"], 0.0, block_id)
+        self.assertLess(by_id["solar"]["cost_low"], by_id["wind"]["cost_low"])
+
+    def test_erneuerbare_stehen_am_anfang_der_merit_order(self):
+        günstigste = [b["id"] for b in self.blocks[:4]]
+        self.assertIn("wind", günstigste)
+        self.assertIn("solar", günstigste)
 
     def test_installierte_leistung_wird_uebernommen(self):
         by_id = {b["id"]: b for b in self.blocks}
