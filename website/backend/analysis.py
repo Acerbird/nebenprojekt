@@ -58,22 +58,53 @@ MIN_LOAD_BID_SPAN = 60.0
 # Standardmäßig aus — und das ist ein unbequemes Ergebnis, kein Versehen.
 #
 # Der Effekt ist real und an SMARD gemessen (siehe power_plants.json). Trotzdem
-# wird das Modell damit schlechter, über 24 Wochen quer durch drei Jahre:
+# wird die Gesamtkennzahl damit schlechter, über 36 Wochen quer durch drei
+# Jahre (der 6. jedes Monats 2023 bis 2025, je 168 Stunden):
 #
 #                        MAE      r     Bias
-#     mit Mindestlast   23,52   0,702   -8,41
-#     ohne              19,76   0,795   -0,13
+#     mit Mindestlast   23,92   0,677  -10,40
+#     ohne              19,94   0,746   -1,64
 #
-# Die naheliegende Erklärung — Mindestlast und die sehr tiefen Gebote der
-# Erneuerbaren erklärten beide dasselbe und würden doppelt gezählt — ist
-# geprüft und falsch: Werden die EE-Gebote von -500 auf -60 angehoben, ändert
-# sich fast nichts (MAE 23,00 statt 23,52). Auch ein flacheres Mindestlastgebot
-# hilft nicht (-40: MAE 23,19).
+# Diese eine Zahl verdeckt allerdings, was wirklich passiert. Nach dem
+# tatsächlichen Preis aufgeteilt, ergibt sich ein völlig anderes Bild — die
+# Verzerrung je Preisklasse, ohne und mit Mindestlast:
 #
-# Weshalb es dann schadet, ist offen. Der Verdacht: Der hinterlegte Park ist zu
-# groß, und zusätzliche billige Leistung am unteren Ende verschiebt die ganze
-# Kurve. Das wäre ein Grund, den Park zu prüfen — nicht, den Effekt zu
-# verschweigen. Deshalb bleibt er als Schalter erhalten und ausgeschaltet.
+#     Ist-Preis      Stunden    ohne ML    mit ML
+#     unter 0            294      +22,7      +5,0
+#     0 bis 30           398      +31,2     +16,3
+#     30 bis 60          427      +17,7      +1,2
+#     60 bis 90        1.707       +6,9      -2,5
+#     90 bis 130       2.336       -5,4     -11,1
+#     über 130           886      -40,3     -46,5
+#
+# Die Mindestlast wirkt also genau dort richtig, wo sie hingehört: In den
+# billigen Stunden schrumpft der Fehler auf ein Viertel bis ein Fünfzehntel.
+# Sie verliert nur deshalb in der Gesamtkennzahl, weil mehr als die Hälfte
+# aller Stunden über 90 Euro liegt — und dort rechnet das Modell ohnehin zu
+# billig. Die Mindestlast verursacht diesen zweiten Fehler nicht, sie
+# verstärkt ihn.
+#
+# Drei Erklärungsversuche sind geprüft und widerlegt:
+#
+# * Doppelzählung mit den sehr tiefen Geboten der Erneuerbaren. Werden die
+#   EE-Gebote von -500 auf -60 angehoben, ändert sich fast nichts.
+# * Der hinterlegte Park sei zu groß. Wird er auf die gemessene Erzeugung
+#   gestutzt, wird alles deutlich schlechter (MAE 23,1 bis 42,7), weil die
+#   gemessene Erzeugung zeigt, was gelaufen ist, und nicht, was bereitstand.
+#   Auch das gezielte Kürzen allein am teuren Ende hilft nicht (Gasturbine von
+#   11 auf 5 GW: MAE 19,94 -> 21,00).
+# * Der Knappheitsaufschlag sei zu schwach, um den Preis oben zu halten. Über
+#   ein Raster aus Schwelle und Höhe gesucht: Jede Verstärkung verschlechtert
+#   MAE und Gleichlauf, egal ob mit oder ohne Mindestlast.
+#
+# Was in den teuersten Stunden fehlt, ist demnach nichts, was am deutschen
+# Park liegt — dort laufen real nur 33 bis 37 der 45 gemessenen Gigawatt,
+# während der Preis schon bei 300 Euro steht. Der Rest hängt am europäischen
+# Verbund und am Bietverhalten und ist mit diesem Modell nicht zu holen.
+#
+# Deshalb bleibt die Mindestlast ein Schalter und bleibt aus: Die
+# Gesamtkennzahl ist der ehrlichere Maßstab für die Voreinstellung. Wer
+# dagegen negative Preise verstehen will, schaltet sie ein — dafür ist sie da.
 MIN_LOAD_DEFAULT = False
 
 # Ab welcher Reserve wird es knapp? Unterhalb dieses Anteils freier Leistung
@@ -95,18 +126,17 @@ MIN_LOAD_DEFAULT = False
 # eine Schwelle von zehn oder zwölf Prozent hätte nie gegriffen.
 #
 # Die beiden Werte unten sind auf 2023/24 gesucht und an 2025 geprüft worden,
-# danach über 24 Wochen quer durch drei Jahre gegengerechnet. Dort schneiden
-# sie so ab:
+# danach über alle 36 Wochen gegengerechnet. Dort schneiden sie so ab:
 #
-#     ohne Aufschlag      MAE 24,25   r 0,727   Bias -14,12
-#     0,40 / 120          MAE 23,89   r 0,695   Bias  -7,63
-#     0,35 / 180          MAE 24,02   r 0,705   Bias  -8,69
-#     0,45 / 120          MAE 25,33   r 0,644   Bias  -3,62
+#     ohne Aufschlag      MAE 21,33   r 0,705   Bias  -7,03
+#     0,40 / 120          MAE 19,94   r 0,746   Bias  -1,64
+#     0,35 / 180          MAE 20,05   r 0,759   Bias  -2,73
+#     0,45 / 120          MAE 20,58   r 0,734   Bias  +1,89
 #
-# Der Aufschlag halbiert also die systematische Unterschätzung und kostet dafür
-# etwas Gleichlauf. Das ist ein bewusster Tausch: Ein Modell, das den Preis im
-# Mittel um vierzehn Euro zu niedrig ansetzt, führt beim Vergleich mit echten
-# Zahlen stärker in die Irre als eines, das im Einzelfall etwas streut.
+# Der Aufschlag nimmt also den größten Teil der systematischen Unterschätzung
+# weg und verbessert dabei auch den Gleichlauf. Mehr ist nicht besser: Über ein
+# Raster bis 0,70 Schwelle und 300 Euro gesucht, verschlechtert jede weitere
+# Verstärkung beide Kennzahlen deutlich.
 SCARCITY_MARGIN = 0.40
 # Aufschlag, wenn die Reserve vollständig aufgebraucht wäre.
 SCARCITY_MARKUP_MAX = 120.0
@@ -928,9 +958,9 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     # Bei echten Messwerten gilt der tatsächliche Ausbaustand, solange niemand
     # den Regler angefasst hat. Die Vorgabewerte sind eine Momentaufnahme und
     # veralten: 90 GW Photovoltaik waren 2024 richtig, im Januar 2025 standen
-    # 101. Über zwölf Wochen quer durch drei Jahre sinkt die mittlere Abweichung
-    # dadurch von 19,9 auf 17,9 €/MWh — der Fehler steckte nicht im Modell,
-    # sondern in einer veralteten Zahl.
+    # 101. Über die 36 Prüfwochen sinkt die mittlere Abweichung dadurch von
+    # 21,49 auf 19,94 €/MWh — der Fehler steckte nicht im Modell, sondern in
+    # einer veralteten Zahl.
     params["capacity_source"] = "fixed"
     installed = (series.meta or {}).get("installed_gw") or {}
     if params["source"] == sources.HISTORICAL and installed:
@@ -1126,6 +1156,88 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
         "forecasts": forecasts,
         # Zeitstempel oben sind UTC — hierin gehören sie angezeigt.
         "display_timezone": series.display_timezone,
+    }
+
+
+# Beispieltag für die Marktseite: kräftige Viertelstundenspreizung, negative
+# Mittagspreise und Abendspitze — aber ohne die Ausreißer über 500 €/MWh, an
+# denen man die Form der Kurve nicht mehr erkennt.
+QUARTER_EXAMPLE_DAY = "2026-04-07"
+
+
+def quarter_prices(date: Optional[str] = None) -> Dict:
+    """Stunden- und Viertelstundenpreis eines Tages nebeneinander.
+
+    Beide stammen aus derselben Auktion, nur in verschiedenen Zeitscheiben.
+    Nebeneinander gelegt zeigen sie, was der Stundenkontrakt wegmittelt — und
+    damit die Spanne, die einem Speicher entgeht, der nur Stunden handelt.
+
+    Vor Oktober 2025 gab es keine Viertelstundenkontrakte; dort steht in der
+    Reihe viermal derselbe Stundenpreis, und beide Linien liegen aufeinander.
+    """
+    from .data import store
+
+    tag = date or QUARTER_EXAMPLE_DAY
+    try:
+        start = datetime.strptime(tag, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return {"date": tag, "error": "Datum im Format JJJJ-MM-TT erwartet.",
+                "quarter": [], "hourly": []}
+    start_ts = int(start.timestamp())
+    end_ts = start_ts + 24 * 3600
+
+    if not store.exists():
+        return {"date": tag, "error": "Keine Messwerte vorhanden.",
+                "quarter": [], "hourly": []}
+    with store.open_db() as conn:
+        viertel = store.read_series(conn, "price_quarter", start_ts, end_ts)
+        stunden = store.read_series(conn, "price", start_ts, end_ts)
+
+    # Der Stundenpreis wird auf die Viertelstunden gelegt, damit beide Linien
+    # dieselbe x-Achse haben — eine Treppe gegen eine Zickzacklinie.
+    je_stunde = {ts: value for ts, value in stunden}
+    gestreckt = [je_stunde.get(ts - (ts - start_ts) % 3600) for ts, _ in viertel]
+
+    return {
+        "date": tag,
+        "timestamps": [ts for ts, _ in viertel],
+        "quarter": [value for _, value in viertel],
+        "hourly": gestreckt,
+        "hourly_raw": [value for _, value in stunden],
+        "display_timezone": sources.timezone_name(),
+        "source": "SMARD.de, Bundesnetzagentur",
+        "note": "Day-Ahead-Preis derselben Auktion, einmal je Stunde und "
+                "einmal je Viertelstunde.",
+    }
+
+
+def exchange_curve(step: float = 5.0) -> Dict:
+    """Die gemessene Außenhandelskurve, gleichmäßig abgetastet.
+
+    Die Stützstellen in power_plants.json liegen in ungleichen Abständen —
+    einfach nebeneinander gezeichnet ergäben sie ein verzerrtes Bild. Deshalb
+    tastet diese Funktion dieselbe Kurve in festen Preisschritten ab; die
+    Stützstellen kommen zusätzlich mit, damit sichtbar bleibt, wo gemessen
+    wurde und wo interpoliert.
+    """
+    curve = EXCHANGE.get("curve") or []
+    if not curve:
+        return {"prices": [], "net_export_gw": [], "points": [], "note": ""}
+    first, last = curve[0][0], curve[-1][0]
+    prices, values = [], []
+    price = float(first)
+    while price <= last + 1e-9:
+        prices.append(round(price, 2))
+        values.append(round(exchange_at_price(price), 3))
+        price += step
+    return {
+        "prices": prices,
+        "net_export_gw": values,
+        "points": [{"price_eur_mwh": p, "net_export_gw": v} for p, v in curve],
+        "max_export_gw": EXCHANGE.get("max_export_gw"),
+        "max_import_gw": EXCHANGE.get("max_import_gw"),
+        "note": EXCHANGE.get("note", ""),
+        "source": (FLEET.get("_quellen") or {}).get("aussenhandel", ""),
     }
 
 

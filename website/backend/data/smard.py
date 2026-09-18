@@ -16,6 +16,17 @@ Erzeugung minus Netzlast minus Nettoexport minus Pumpspeicherverbrauch bleibt
 im Mittel unter einem Gigawatt — der Rest sind Netzverluste und Eigenversorgung.
 Positive Werte bedeuten Export, negative Import.
 
+Welche Nummer welche Zeitreihe meint, steht nicht in der Datenschnittstelle,
+wohl aber in der Konfiguration, die die SMARD-Oberfläche selbst lädt:
+
+    https://www.smard.de/app/chart_configuration/market_data_configuration.json
+    https://www.smard.de/app/assets/translations/lang-de.json
+
+Die erste ordnet jedem Baustein eine `data_id` — genau die Filter-Nummer — und
+einen Namensschlüssel zu, die zweite löst den Schlüssel in Klartext auf. So sind
+die Preisreihen der Nachbarzonen hier eingetragen, und so lassen sie sich
+nachprüfen, statt sie zu raten.
+
 Quelle: SMARD.de, Bundesnetzagentur. Bei Weiterverwendung ist die Quelle zu
 nennen; vor einer kommerziellen Nutzung sind die Nutzungsbedingungen zu prüfen.
 """
@@ -52,10 +63,49 @@ SERIES: Dict[str, Dict] = {
     "other_renewable":    {"filter": 1228, "unit": "MW", "label": "Erzeugung: Sonstige Erneuerbare"},
     "net_export":         {"filter": 4629, "unit": "MW", "label": "Kommerzieller Nettoexport"},
     "pumped_load":        {"filter": 4387, "unit": "MW", "label": "Stromverbrauch: Pumpspeicher"},
+    # Derselbe Filter wie "price", nur viertelstündlich abgerufen. Bis
+    # September 2025 steht dort viermal der Stundenpreis; seit dem 1. Oktober
+    # 2025 räumt die Day-Ahead-Auktion echte Viertelstundenkontrakte, und die
+    # vier Werte einer Stunde laufen weit auseinander. Das ist die Größe, an
+    # der Speichererlöse hängen — siehe die Seite /maerkte.
+    "price_quarter":      {"filter": 4169, "unit": "EUR/MWh", "resolution": "quarterhour",
+                           "label": "Großhandelspreis Day-Ahead, Viertelstunde"},
+    # Die Nachbarn an derselben Auktion. Mit ihnen lässt sich messen, was
+    # Marktkopplung leistet: Solange Kapazität frei ist, räumt der gemeinsame
+    # Algorithmus beide Zonen zum selben Preis; ist die Leitung voll, laufen
+    # die Preise auseinander.
+    "price_fr":           {"filter": 254,  "unit": "EUR/MWh", "label": "Großhandelspreis Frankreich"},
+    "price_nl":           {"filter": 256,  "unit": "EUR/MWh", "label": "Großhandelspreis Niederlande"},
+    "price_be":           {"filter": 4996, "unit": "EUR/MWh", "label": "Großhandelspreis Belgien"},
+    "price_ch":           {"filter": 259,  "unit": "EUR/MWh", "label": "Großhandelspreis Schweiz"},
+    "price_at":           {"filter": 4170, "unit": "EUR/MWh", "label": "Großhandelspreis Österreich"},
+    "price_pl":           {"filter": 257,  "unit": "EUR/MWh", "label": "Großhandelspreis Polen"},
+    "price_cz":           {"filter": 261,  "unit": "EUR/MWh", "label": "Großhandelspreis Tschechien"},
+    "price_dk1":          {"filter": 252,  "unit": "EUR/MWh", "label": "Großhandelspreis Dänemark 1"},
+    "price_dk2":          {"filter": 253,  "unit": "EUR/MWh", "label": "Großhandelspreis Dänemark 2"},
+    "price_no2":          {"filter": 4997, "unit": "EUR/MWh", "label": "Großhandelspreis Norwegen 2"},
+    "price_se4":          {"filter": 258,  "unit": "EUR/MWh", "label": "Großhandelspreis Schweden 4"},
+    "price_neighbours":   {"filter": 5078, "unit": "EUR/MWh", "label": "Großhandelspreis Anrainer DE/LU im Mittel"},
 }
 
-# Was das Modell mindestens braucht. Der Rest ist für Vergleich und Validierung.
-CORE_SERIES = ("load", "wind_onshore", "wind_offshore", "solar", "price", "net_export")
+# Welche Reihen die Nachbarzonen sind — für Beschriftungen und Auswertungen.
+NEIGHBOUR_PRICES: Dict[str, str] = {
+    "price_fr": "Frankreich", "price_nl": "Niederlande", "price_be": "Belgien",
+    "price_ch": "Schweiz", "price_at": "Österreich", "price_pl": "Polen",
+    "price_cz": "Tschechien", "price_dk1": "Dänemark 1", "price_dk2": "Dänemark 2",
+    "price_no2": "Norwegen 2", "price_se4": "Schweden 4",
+}
+
+# Ab hier sind die Viertelstundenwerte echte Kontrakte und nicht der
+# vervierfachte Stundenpreis. Gemessen: davor ist die Spreizung innerhalb jeder
+# Stunde exakt null, danach liegt sie im Mittel bei 17 bis 46 EUR/MWh.
+QUARTER_PRICES_FROM = 1759269600   # 2025-10-01 00:00 UTC
+
+# Was Modell und Erklärseiten mindestens brauchen. Der Rest ist für Vergleich
+# und Validierung. price_quarter rechnet das Modell nicht mit — die Seite
+# /maerkte beruht aber darauf, deshalb läuft sie hier mit.
+CORE_SERIES = ("load", "wind_onshore", "wind_offshore", "solar", "price",
+               "net_export", "price_quarter")
 
 # Zeitreihen, aus denen die Merit-Order-Prüfung später den echten Mix nachbaut.
 GENERATION_SERIES = ("wind_onshore", "wind_offshore", "solar", "biomass", "hydro",
@@ -98,10 +148,17 @@ def _filter_id(name: str) -> int:
     return SERIES[name]["filter"]
 
 
+def resolution(name: str) -> str:
+    """Zeitliche Auflösung dieser Reihe — stündlich, wenn nichts anderes steht."""
+    if name not in SERIES:
+        raise KeyError("Unbekannte Zeitreihe: %s" % name)
+    return SERIES[name].get("resolution", RESOLUTION)
+
+
 def available_weeks(name: str) -> List[int]:
     """Verfügbare Wochenanfänge als Unix-Sekunden, aufsteigend."""
     filter_id = _filter_id(name)
-    url = "%s/%d/%s/index_%s.json" % (BASE_URL, filter_id, REGION, RESOLUTION)
+    url = "%s/%d/%s/index_%s.json" % (BASE_URL, filter_id, REGION, resolution(name))
     body = _request(url)
     if body is None:
         return []
@@ -110,14 +167,14 @@ def available_weeks(name: str) -> List[int]:
 
 
 def fetch_week(name: str, week_start: int) -> List[Tuple[int, Optional[float]]]:
-    """Stundenwerte einer Woche als (Unix-Sekunden, Wert).
+    """Werte einer Woche als (Unix-Sekunden, Wert) — meist 168 Stunden.
 
     Fehlende Werte kommen als None durch und werden auch so gespeichert —
     eine Lücke ist eine Information, kein Grund zum Raten.
     """
     filter_id = _filter_id(name)
     url = "%s/%d/%s/%d_%s_%s_%d.json" % (
-        BASE_URL, filter_id, REGION, filter_id, REGION, RESOLUTION, week_start * 1000)
+        BASE_URL, filter_id, REGION, filter_id, REGION, resolution(name), week_start * 1000)
     body = _request(url)
     if body is None:
         return []

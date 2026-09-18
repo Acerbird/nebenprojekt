@@ -38,8 +38,10 @@ else
   backend/.venv/bin/python -c "
 from fastapi.testclient import TestClient
 from backend.main import app
-html = TestClient(app).get('/analysen').text
-open('tests/frontend/analysis-page.html', 'w', encoding='utf-8').write(html)
+client = TestClient(app)
+for pfad, datei in (('/analysen', 'analysis-page.html'), ('/handel', 'trade-page.html'),
+                    ('/maerkte', 'markets-page.html')):
+    open('tests/frontend/' + datei, 'w', encoding='utf-8').write(client.get(pfad).text)
 " && "$NODE" --test tests/frontend/*.test.mjs || status=1
 fi
 

@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block description %}Pumpspeicher, Batterien und flexibler Verbrauch — was Speicher im Stromsystem leisten und wo ihre Grenze liegt.{% endblock %}
+{% block content %}
+<div class="page-head">
+  <span class="eyebrow">Grundlagen</span>
+  <h1>Speicher und Flexibilität</h1>
+  <p class="lead">
+    Ein Speicher erzeugt keinen Strom, er verschiebt ihn. Das klingt nach wenig und ist der
+    Grund, warum sich der Strommarkt gerade umbaut — denn zu verschieben gibt es immer mehr.
+  </p>
+</div>
+
+<section class="prose">
+  <h2>Der Preisunterschied ist das Geschäft</h2>
+  <p>
+    Ein Speicher lebt davon, dass Strom zu verschiedenen Stunden verschieden viel kostet. Kaufen,
+    wenn Wind und Sonne den Preis drücken; verkaufen, wenn abends die Gasturbinen den Preis
+    setzen. Genau diese Spanne ist in den letzten Jahren gewachsen — gemessen als Abstand
+    zwischen der teuersten und der billigsten Stunde desselben Tages:
+  </p>
+  <table class="data-table">
+    <caption>Tagesspreizung des Day-Ahead-Preises, Mittel über alle Tage des Jahres</caption>
+    <thead>
+      <tr><th scope="col">Jahr</th><th scope="col">Mittelwert</th><th scope="col">Median</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>2023</td><td>99 €/MWh</td><td>89 €/MWh</td></tr>
+      <tr><td>2024</td><td>112 €/MWh</td><td>98 €/MWh</td></tr>
+      <tr><td>2025</td><td>125 €/MWh</td><td>113 €/MWh</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Der Grund ist der Zubau der Photovoltaik: Sie drückt den Mittagspreis, lässt den Abend aber
+    unberührt. Wer die Mittagsstunde in den Abend tragen kann, verdient an dieser Differenz.
+    Entsprechend schnell wächst die Batterieleistung — von 1,6 GW im Jahr 2020 auf 21,2 GW im
+    Jahr 2026.
+  </p>
+
+  <h2>Pumpspeicher: das gelernte Verfahren</h2>
+  <p>
+    Deutschlands Pumpspeicherwerke leisten zusammen rund 9,9 GW und halten etwa 40 GWh vor. Sie
+    tun seit Jahrzehnten dasselbe, und die Messwerte zeigen es deutlich: 2025 haben sie
+    12,7 TWh eingespeichert und 9,9 TWh wieder abgegeben — der Rest, rund ein Fünftel, ging als
+    Reibung und Wärme verloren.
+  </p>
+  <p>
+    Bezahlt wird dieser Verlust aus der Preisdifferenz. Mengengewichtet kauften die Pumpen 2025
+    zu 48 €/MWh und verkauften zu 130 €/MWh. Bei rund einem Fünftel Verlust bleibt davon genug
+    übrig — bei einer Spanne von 20 € wäre das Geschäft verloren.
+  </p>
+  <p>
+    Die Jahresbilanz ist dabei etwas günstiger als der technische Wirkungsgrad: Ein Teil der
+    deutschen Pumpspeicher hat natürlichen Zufluss und gibt deshalb Strom ab, den niemand
+    hineingepumpt hat. Das Modell rechnet mit den üblichen 75 % über den vollen Lade- und
+    Entladezyklus.
+  </p>
+
+  <div class="note">
+    <strong>Wirkungsgrad heißt: ein Teil ist weg</strong>
+    <p>
+      Batterien geben rund 88 % des geladenen Stroms wieder ab, Pumpspeicher etwa drei Viertel.
+      Jede gespeicherte Kilowattstunde kostet also eine angefangene zusätzlich. Deshalb ist
+      Speichern nie die erste Wahl: Strom direkt zu verbrauchen, wenn er da ist, bleibt immer
+      billiger, als ihn zwischenzulagern.
+    </p>
+  </div>
+
+  <h2>Wo die Grenze liegt</h2>
+  <p>
+    Der entscheidende Unterschied ist nicht Leistung, sondern Vorrat. Die Batterien im System
+    fassen rund 33 GWh, die Pumpspeicher etwa 40 GWh — zusammen also gut 70 GWh. Deutschland
+    verbraucht im Mittel knapp 60 GW. Alle Speicher des Landes zusammen decken den Verbrauch
+    damit für etwas mehr als eine Stunde.
+  </p>
+  <p>
+    Für den Tagesausgleich reicht das und wird es zunehmend besser: Die Mittagsspitze der
+    Photovoltaik dauert wenige Stunden, und genau dafür sind Batterien gebaut — viel Leistung,
+    wenig Vorrat. Für eine <strong>Dunkelflaute</strong> über fünf Winterwochentage reicht es
+    nicht annähernd: Dort fehlen Größenordnungen von tausenden Gigawattstunden, nicht siebzig.
+    Diese Lücke schließen Speicher nicht, sondern gesicherte Kraftwerksleistung oder
+    langfristig speicherbare Brennstoffe.
+  </p>
+
+  <h2>Der Tagesmarkt ist nicht der ganze Erlös</h2>
+  <p>
+    Die Spreizung oben ist am Day-Ahead-Markt gemessen, und zwar an Stundenkontrakten. Das ist
+    die Untergrenze dessen, was ein Speicher verdienen kann — nicht sein Erlös. Seit Oktober
+    2025 räumt die Auktion Viertelstunden statt Stunden, und die vier Werte einer Stunde laufen
+    im Mittel um 23,2 €/MWh auseinander. Wer diese feineren Zeitscheiben handelt, trifft
+    Spitzen, die der Stundenpreis wegmittelt: An 62 % der Tage liegt die teuerste Viertelstunde
+    gar nicht in der teuersten Stunde.
+  </p>
+  <p>
+    Dazu kommen der Intraday-Handel, auf dem Prognosefehler ausgeglichen werden, und die
+    Regelleistung, für deren bloßes Bereitstehen bezahlt wird. Ein Speicher entscheidet vor
+    jeder Stunde neu, auf welchem dieser Märkte seine Leistung am meisten bringt. Wie viel das
+    ausmacht, steht mit Zahlen auf der Seite zu den
+    <a href="/maerkte">kurzfristigen Märkten</a>.
+  </p>
+
+  <h2>Der andere Hebel: Verbrauch, der sich bewegt</h2>
+  <p>
+    Flexibilität muss nicht aus einem Speicher kommen. Eine Wärmepumpe, die das Haus am Mittag
+    ein Grad wärmer fährt, ein Elektroauto, das nachts statt abends lädt, eine Elektrolyse, die
+    bei negativen Preisen hochfährt — das alles verschiebt Verbrauch ohne Umwandlungsverlust und
+    ohne gebaute Anlage. Der Effekt ist derselbe wie bei einem Speicher, die Kosten sind
+    niedriger.
+  </p>
+  <p>
+    Im <a href="/analysen">Simulator</a> lässt sich beides trennen: Der Höchstlast-Regler streckt
+    die gemessene Nachfrage, ohne ihre Form zu ändern — so sieht man, was zusätzlicher Verbrauch
+    anrichtet, wenn er <em>nicht</em> verschoben wird. Der Lade- und Entladeplan der Speicher
+    darunter zeigt, wie viel davon die vorhandenen Anlagen abfangen.
+  </p>
+</section>
+
+<div class="cta-row">
+  <a class="btn btn-primary" href="/maerkte">Woran Speicher verdienen</a>
+  <a class="btn btn-secondary" href="/analysen">Szenarien durchrechnen</a>
+</div>
+{% endblock %}

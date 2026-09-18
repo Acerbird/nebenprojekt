@@ -37,6 +37,9 @@ NAV = [
     {"href": "/", "label": "Start", "key": "start"},
     {"href": "/stromsystem", "label": "Stromsystem", "key": "stromsystem"},
     {"href": "/erneuerbare", "label": "Erneuerbare", "key": "erneuerbare"},
+    {"href": "/speicher", "label": "Speicher", "key": "speicher"},
+    {"href": "/maerkte", "label": "Märkte", "key": "maerkte"},
+    {"href": "/handel", "label": "Handel", "key": "handel"},
     {"href": "/analysen", "label": "Analysen", "key": "analysen"},
     {"href": "/glossar", "label": "Glossar", "key": "glossar"},
 ]
@@ -63,6 +66,21 @@ async def system_page(request: Request):
 @app.get("/erneuerbare", response_class=HTMLResponse)
 async def renewables_page(request: Request):
     return page(request, "subpages/renewables.html", "erneuerbare", "Erneuerbare")
+
+
+@app.get("/speicher", response_class=HTMLResponse)
+async def storage_page(request: Request):
+    return page(request, "subpages/storage.html", "speicher", "Speicher")
+
+
+@app.get("/maerkte", response_class=HTMLResponse)
+async def markets_page(request: Request):
+    return page(request, "subpages/markets.html", "maerkte", "Märkte")
+
+
+@app.get("/handel", response_class=HTMLResponse)
+async def trade_page(request: Request):
+    return page(request, "subpages/trade.html", "handel", "Handel")
 
 
 @app.get("/analysen", response_class=HTMLResponse)
@@ -180,6 +198,18 @@ async def api_day_profiles(season: Optional[str] = Query(None)):
 async def api_stories():
     """Geführte Fragen mit fertigen Parametersätzen für die Analyseseite."""
     return JSONResponse(anl.stories())
+
+
+@app.get("/api/quarter-prices")
+async def api_quarter_prices(date: Optional[str] = Query(None)):
+    """Stunden- und Viertelstundenpreis eines Tages für die Marktseite."""
+    return JSONResponse(anl.quarter_prices(date))
+
+
+@app.get("/api/exchange-curve")
+async def api_exchange_curve():
+    """Gemessene Außenhandelskurve für die Erklärseite."""
+    return JSONResponse(anl.exchange_curve())
 
 
 @app.get("/api/glossary")

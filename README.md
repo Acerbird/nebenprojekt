@@ -100,8 +100,11 @@ ist deshalb ignoriert.
 | `/` | Einstieg und Kurzfassung |
 | `/stromsystem` | Last, Residuallast, Merit-Order, Einheitspreisverfahren |
 | `/erneuerbare` | Kapazitätsfaktoren, Dunkelflaute, Abregelung, Flexibilität |
+| `/speicher` | Pumpspeicher, Batterien, flexibler Verbrauch und ihre Grenzen |
+| `/maerkte` | Day-Ahead, Intraday, Regelleistung und die Viertelstunde |
+| `/handel` | Import, Export, Marktkopplung und Kuppelkapazität |
 | `/analysen` | Simulator mit Merit-Order, Erzeugungsmix und Preisverlauf |
-| `/glossar` | 25 Begriffe mit Sofortsuche und Querverweisen |
+| `/glossar` | 30 Begriffe mit Sofortsuche und Querverweisen |
 | `/docs` | automatisch erzeugte API-Dokumentation |
 
 ## API
@@ -112,6 +115,8 @@ ist deshalb ignoriert.
 | `GET /api/merit-order` | Merit-Order-Kurve für die übergebenen Parameter |
 | `GET /api/profiles/day` | Tagesgänge von Last und Photovoltaik |
 | `GET /api/data/status` | welche Messwerte lokal vorliegen |
+| `GET /api/exchange-curve` | gemessene Außenhandelskurve für die Erklärseite |
+| `GET /api/quarter-prices` | Stunden- und Viertelstundenpreis eines Tages |
 | `GET /api/glossary` | Glossareinträge als JSON |
 | `GET /health` | Statusabfrage |
 
@@ -199,25 +204,58 @@ starten und haben keinen Grund durchzulaufen.
 Unterhalb von −80 €/MWh lohnt auch das Durchhalten nicht mehr, dann fährt auch
 die Mindestlast ab. Ohne diese Grenze liefe die Kohle im Modell bis −500 weiter.
 
-**Und dann wird das Modell damit schlechter.** Über 24 Wochen quer durch drei
-Jahre, bei sonst gleichem Modell:
+**Und dann wird die Gesamtkennzahl damit schlechter.** Über 36 Wochen quer
+durch drei Jahre, bei sonst gleichem Modell:
 
 | | MAE | Korrelation | Verzerrung |
 |---|---|---|---|
-| mit Mindestlast | 23,52 | 0,702 | −8,41 |
-| ohne | **19,76** | **0,795** | **−0,13** |
+| mit Mindestlast | 23,92 | 0,677 | −10,40 |
+| ohne | **19,94** | **0,746** | **−1,64** |
 
-Die naheliegende Erklärung wäre eine Doppelzählung: Mindestlast und die sehr
-tiefen Gebote der Erneuerbaren erklären beide, warum der Preis im Überschuss
-nicht ins Bodenlose fällt. Das ist geprüft und stimmt nicht — hebt man die
-EE-Gebote von −500 auf −60 an, ändert sich fast nichts (MAE 23,00 statt 23,52).
-Ein flacheres Mindestlastgebot hilft ebenso wenig (−40: MAE 23,19).
+Diese eine Zahl verdeckt allerdings, was tatsächlich passiert. Teilt man
+denselben Vergleich nach dem tatsächlich gezahlten Preis auf, kehrt sich das
+Urteil in der Hälfte der Fälle um — hier die Verzerrung je Preisklasse:
 
-Weshalb es schadet, ist damit offen. Der Verdacht liegt beim hinterlegten Park:
-Er ist womöglich zu groß, und zusätzliche billige Leistung am unteren Ende
-verschiebt die ganze Kurve. Das wäre ein Grund, den Park zu prüfen — nicht, den
-Effekt zu verschweigen. Deshalb bleibt die Mindestlast als Schalter erhalten
-(Kästchen im Formular, `min_load=true` an der API) und ist standardmäßig aus.
+| Ist-Preis (€/MWh) | Stunden | ohne Mindestlast | mit Mindestlast |
+|---|---|---|---|
+| unter 0 | 294 | +22,7 | **+5,0** |
+| 0 bis 30 | 398 | +31,2 | **+16,3** |
+| 30 bis 60 | 427 | +17,7 | **+1,2** |
+| 60 bis 90 | 1.707 | +6,9 | **−2,5** |
+| 90 bis 130 | 2.336 | **−5,4** | −11,1 |
+| über 130 | 886 | **−40,3** | −46,5 |
+
+Die Mindestlast wirkt also genau dort richtig, wo sie hingehört: In den billigen
+Stunden schrumpft der Fehler auf ein Viertel bis ein Fünfzehntel. Sie verliert
+in der Gesamtkennzahl nur deshalb, weil mehr als die Hälfte aller Stunden über
+90 €/MWh liegt — und dort rechnet das Modell ohnehin zu billig. Die Mindestlast
+verursacht diesen zweiten Fehler nicht, sie verstärkt ihn.
+
+Drei Erklärungen für den Fehler am teuren Ende sind geprüft und widerlegt:
+
+* **Doppelzählung mit den Geboten der Erneuerbaren.** Beide erklären, warum der
+  Preis im Überschuss nicht ins Bodenlose fällt. Hebt man die EE-Gebote von
+  −500 auf −60 an, ändert sich fast nichts.
+* **Der hinterlegte Park sei zu groß.** Stutzt man ihn auf die gemessene
+  Erzeugung, wird alles deutlich schlechter (MAE 23,1 bis 42,7). Der Grund ist
+  ein Denkfehler, der sich lohnt zu merken: Die gemessene Erzeugung zeigt, was
+  gelaufen ist, nicht, was bereitstand. Ein Kraftwerk, das der Markt nicht
+  braucht, steht trotzdem da. Auch gezieltes Kürzen allein am teuren Ende hilft
+  nicht — die Gasturbinen von 11 auf 5 GW verschlechtern den MAE von 19,94 auf
+  21,00.
+* **Der Knappheitsaufschlag sei zu schwach.** Über ein Raster aus Schwelle
+  (0,40 bis 0,70) und Höhe (120 bis 300 €/MWh) gesucht: Jede Verstärkung
+  verschlechtert MAE und Gleichlauf, mit wie ohne Mindestlast.
+
+Was in den teuersten Stunden fehlt, liegt demnach nicht am deutschen Park. Dort
+laufen real nur 33 bis 37 der rund 45 gemessenen Gigawatt, während der Preis
+schon bei 300 €/MWh steht — die Knappheit ist europäisch und liegt im
+Bietverhalten, und beides holt dieses Modell nicht ein.
+
+Deshalb bleibt die Mindestlast ein Schalter (Kästchen im Formular,
+`min_load=true` an der API) und bleibt standardmäßig aus: Für die Voreinstellung
+zählt die Gesamtkennzahl. Wer negative Preise verstehen will, schaltet sie ein —
+dafür ist sie da.
 
 ### Außenhandel: die Ursache nicht umdrehen
 
@@ -257,7 +295,7 @@ Ein reines Grenzkostenmodell nimmt an, dass jedes Kraftwerk zu seinen variablen
 Kosten bietet. Das stimmt, solange reichlich Leistung da ist. Wird es eng, weiß
 der letzte verfügbare Block, dass ohne ihn niemand liefert — und bietet darüber.
 
-Auch hier zuerst gemessen. Über 24 Wochen quer durch 2023 bis 2025, sortiert
+Auch hier zuerst gemessen. Über den Prüfsatz quer durch 2023 bis 2025, sortiert
 nach dem tatsächlichen Preis:
 
 | Ist-Preis (€/MWh) | mittlere Reserve | Modell ohne Aufschlag |
@@ -271,7 +309,18 @@ nach dem tatsächlichen Preis:
 Die Reserve fällt selbst in den teuersten Stunden nie unter ein Fünftel. Eine
 Schwelle von zehn Prozent, wie sie zunächst naheliegt, hätte also nie gegriffen.
 Gewählt sind 40 % Schwelle und bis zu 120 €/MWh Aufschlag, linear mit der Enge
-wachsend — auf 2023/24 gesucht, an 2025 geprüft.
+wachsend — auf 2023/24 gesucht, an 2025 geprüft und über alle 36 Wochen
+gegengerechnet:
+
+| Schwelle / Höhe | MAE | Korrelation | Verzerrung |
+|---|---|---|---|
+| ohne Aufschlag | 21,33 | 0,705 | −7,03 |
+| **0,40 / 120** | **19,94** | 0,746 | **−1,64** |
+| 0,35 / 180 | 20,05 | **0,759** | −2,73 |
+| 0,45 / 120 | 20,58 | 0,734 | +1,89 |
+
+Mehr Aufschlag ist nicht besser: Über ein Raster bis 0,70 Schwelle und 300 €/MWh
+gesucht, verschlechtert jede weitere Verstärkung beide Kennzahlen.
 
 Der Aufschlag steckt **in** der Markträumung, nicht dahinter. Würde er erst auf
 den geräumten Preis aufgeschlagen, gehörte die Handelsmenge zu einem anderen
@@ -365,39 +414,66 @@ tatsächlich gezahlten Day-Ahead-Preis und weist drei Kennzahlen aus: die
 mittlere Abweichung, die Verzerrung (rechnet das Modell systematisch zu hoch
 oder zu tief?) und die Korrelation.
 
-Als Maßstab dient ein fester Prüfsatz: 24 Wochen, jeweils der 6. eines Monats,
-quer durch 2023 bis 2025. Stand heute:
+Als Maßstab dient ein fester Prüfsatz: **36 Wochen, jeweils der 6. eines Monats
+von Januar 2023 bis Dezember 2025**, je 168 Stunden — also jeder Monat dreier
+Jahre, keine Auswahl nach Eignung. Jede Zahl dieses Abschnitts kommt aus einem
+Programm und lässt sich nachrechnen:
+
+```bash
+cd website
+backend/.venv/bin/python -m backend.benchmark              # die Tabelle unten
+backend/.venv/bin/python -m backend.benchmark --ablation   # jeden Baustein weglassen
+backend/.venv/bin/python -m backend.benchmark --klassen    # aufgeteilt nach Ist-Preis
+```
+
+Eine Woche, die nicht vollständig vorliegt, zählt dabei nicht mit. Das Modell
+würde sie an den Rand des Bestands rücken — zwei solche Wochen wären dieselbe,
+und der Prüfsatz zählte sie doppelt, ohne dass es an den Zahlen zu sehen wäre.
+
+Stand heute:
 
 | Jahr | MAE | Korrelation | Verzerrung |
 |---|---|---|---|
-| 2023 | 16,62 | 0,844 | −1,67 |
-| 2024 | 19,74 | 0,797 | +4,41 |
-| 2025 | 18,82 | 0,781 | −4,04 |
-| **gesamt** | **18,39** | **0,808** | **−0,43** |
+| 2023 | 16,04 | 0,817 | −1,52 |
+| 2024 | 23,47 | 0,720 | −0,11 |
+| 2025 | 20,30 | 0,768 | −3,29 |
+| **gesamt** | **19,94** | **0,746** | **−1,64** |
 
-Zum Vergleich: Vor Außenhandel, Monatspreisen und Knappheitsaufschlag lagen
-dieselben 24 Wochen bei MAE 24,46, Korrelation 0,785 und einer Verzerrung von
-−7,26. Der Fehler ist also um ein Viertel gesunken, und die systematische
-Unterschätzung ist praktisch verschwunden — vor allem im Gaskrisenjahr 2023, wo
-sie vorher bei −20 lag.
+Zum Vergleich: Ohne Außenhandel, Monatspreise und Knappheitsaufschlag liegen
+dieselben 36 Wochen bei MAE 24,06, Korrelation 0,654 und einer Verzerrung von
+−8,03. Der Fehler ist also um ein Sechstel gesunken, der Gleichlauf deutlich
+gestiegen, und die systematische Unterschätzung ist praktisch verschwunden.
 
-Der letzte Schritt dorthin war kein Modellbaustein, sondern eine veraltete Zahl:
-Die Voreinstellung von 90 GW Photovoltaik stammte aus einer Momentaufnahme, im
+Ein Schritt dorthin war kein Modellbaustein, sondern eine veraltete Zahl: Die
+Voreinstellung von 90 GW Photovoltaik stammte aus einer Momentaufnahme, im
 Januar 2025 standen aber 101 GW. Seit unberührte Regler bei echten Messwerten
-den tatsächlichen Ausbaustand meinen (siehe unten), sank die mittlere Abweichung
-noch einmal von 19,76 auf 18,39.
+den tatsächlichen Ausbaustand meinen (siehe unten), rechnet das Modell mit dem
+Park des jeweiligen Zeitraums statt mit einem festen.
 
-Was jedes Stück beiträgt, jeweils weggelassen aus dem vollständigen Modell:
+Was jedes Stück beiträgt, jeweils weggelassen aus dem Modell in seiner
+Voreinstellung:
 
 | weggelassen | MAE | Korrelation | Verzerrung |
 |---|---|---|---|
-| nichts (Vollmodell mit Mindestlast) | 23,52 | 0,702 | −8,41 |
-| Mindestlast | 19,76 | 0,795 | −0,13 |
-| Außenhandel | 28,24 | 0,677 | −4,70 |
-| Monatspreise | 25,93 | 0,709 | −9,13 |
-| Knappheitsaufschlag | 24,25 | 0,727 | −14,12 |
+| nichts (Voreinstellung) | **19,94** | **0,746** | **−1,64** |
+| Außenhandel | 23,11 | 0,739 | +3,54 |
+| Monatspreise | 22,54 | 0,720 | −1,98 |
+| echter Ausbaustand | 21,49 | 0,719 | −1,01 |
+| Knappheitsaufschlag | 21,33 | 0,705 | −7,03 |
+| *zusätzlich* Mindestlast | 23,92 | 0,677 | −10,40 |
 
-Der Außenhandel trägt am meisten, die Mindestlast schadet (siehe oben).
+Weggelassen heißt hier jeweils: dieses eine Stück aus dem vollständigen Modell
+entfernt, nicht nacheinander abgebaut. Eine Kettenablation würde das zweite
+Stück an einem Modell messen, dem schon das erste fehlt, und Wechselwirkungen
+verstecken.
+
+Der Außenhandel trägt am meisten; die Mindestlast verschlechtert die
+Gesamtkennzahl und verbessert trotzdem die billigen Stunden (siehe oben).
+
+Die früheren Zahlen dieses Abschnitts beruhten auf 24 der 36 Wochen. Der
+Prüfsatz ist bewusst auf alle Monate erweitert worden: Ein Maßstab, bei dem ein
+Drittel der Zeiträume fehlt, lädt dazu ein, unbemerkt die bequemen behalten zu
+haben.
 
 Nicht abgebildet: An- und Abfahrkosten im Einzelnen, Kraft-Wärme-Kopplung,
 Reservemärkte, Netzengpässe innerhalb Deutschlands. Auch der Außenhandel bleibt
@@ -595,6 +671,125 @@ Prüfbar sind zurzeit `negative_price_hours`, `curtailed_gwh`, `mean_price`,
 oder als `{"min": …}` / `{"max": …}` — sowie `merit_order` als erwartete
 Reihenfolge von Blöcken.
 
+## Die Viertelstunde, und was sie für Speicher ändert
+
+Seit dem 1. Oktober 2025 räumt die europäische Day-Ahead-Auktion
+Viertelstundenkontrakte statt Stundenkontrakte. SMARD liefert beides unter
+demselben Filter, nur anders aufgelöst — deshalb steht die Auflösung jetzt an
+der Zeitreihe und nicht mehr fest im Abrufmodul:
+
+```python
+"price_quarter": {"filter": 4169, "resolution": "quarterhour", ...}
+```
+
+Dass die Umstellung ein echter Bruch ist und keine Formsache, ist nachgemessen:
+Vor Oktober 2025 stehen in der Viertelstundenreihe viermal derselbe
+Stundenpreis, die Spreizung innerhalb jeder Stunde ist exakt null. Danach liegt
+sie im Mittel bei 23,2 €/MWh, im Median bei 14,6 und im Höchstfall bei 460.
+
+Für Speicher ist das die interessanteste Zahl des ganzen Projekts, weil sie
+direkt am Erlös hängt. Gerechnet über 330 Tage, ein Zyklus je Tag, 88 %
+Wirkungsgrad, gekauft in den billigsten und verkauft in den teuersten
+Zeitscheiben:
+
+| Vorrat | nur Stundenkontrakte | Viertelstunden | Unterschied |
+|---|---|---|---|
+| 1 Stunde | 112,8 € | 123,8 € | +10 % |
+| 2 Stunden | 107,9 € | 114,6 € | +6 % |
+| 4 Stunden | 94,2 € | 98,7 € | +5 % |
+| 8 Stunden | 69,1 € | 72,2 € | +4 % |
+
+Je kürzer der Vorrat, desto mehr bringt die feinere Zeitscheibe — ein Speicher
+mit einer Stunde Vorrat lebt von genau den Spitzen, die der Stundenkontrakt
+wegmittelt. An nur 38 % der Tage fällt die teuerste Viertelstunde überhaupt in
+die teuerste Stunde.
+
+Das ist eine Obergrenze, kein Betriebsergebnis: Gerechnet wird mit perfekter
+Voraussicht, abgezogen ist allein der Umwandlungsverlust. Netzentgelte, Abgaben,
+Alterung und Kapitalkosten fehlen.
+
+Das Messfenster endet mit dem letzten abgeschlossenen Monat (August 2026). Ein
+mitlaufendes Ende würde die Zahlen mit jedem Datenabruf verschieben, und SMARD
+bessert die jüngsten Wochen ohnehin nach.
+
+## Was die Filternummern bei SMARD bedeuten
+
+Die Datenschnittstelle von SMARD kennt nur Nummern: `/app/chart_data/4169/DE/…`
+ist der deutsche Day-Ahead-Preis, `254` der französische. Welche Nummer welche
+Reihe meint, steht nicht in der Schnittstelle — wohl aber in der Konfiguration,
+die die SMARD-Oberfläche selbst lädt:
+
+| Datei | Inhalt |
+|---|---|
+| `/app/chart_configuration/market_data_configuration.json` | jeder Baustein mit `data_id` (= Filternummer) und Namensschlüssel |
+| `/app/assets/translations/lang-de.json` | löst die Namensschlüssel in Klartext auf |
+
+Beides zusammen ergibt die vollständige Liste, etwa alle siebzehn
+Großhandelspreis-Reihen mit ihren Gebotszonen. So sind die Nachbarpreise in
+`smard.py` eingetragen — nachprüfbar statt geraten.
+
+Der erste Versuch, sie über die Region abzurufen (`/4169/FR/…`), scheitert
+übrigens mit 404: Die Regionsschlüssel sind die deutschen Gebots- und
+Regelzonen, die Nachbarländer haben eigene Filternummern.
+
+## Preiskonvergenz: woran man sieht, dass die Kopplung wirkt
+
+Wenn zwei gekoppelte Zonen genug freie Leitung haben, räumt der gemeinsame
+Algorithmus beide zum exakt selben Preis. Das ist zählbar. Über 23 209 Stunden
+von Januar 2024 bis August 2026:
+
+| Zone | gleicher Preis | Ø Abstand |
+|---|---|---|
+| Dänemark 1 | 49,0 % | 8,5 €/MWh |
+| Dänemark 2 | 32,0 % | 9,6 €/MWh |
+| Niederlande | 15,5 % | 6,7 €/MWh |
+| Österreich | 11,8 % | 13,1 €/MWh |
+| Belgien | 11,3 % | 11,6 €/MWh |
+| Tschechien | 11,2 % | 10,1 €/MWh |
+| Frankreich | 10,8 % | 29,3 €/MWh |
+| Polen | 6,6 % | 20,4 €/MWh |
+| Schweden 4 | 5,4 % | 30,7 €/MWh |
+| Norwegen 2 | 1,3 % | 29,5 €/MWh |
+| **Schweiz** | **0,1 %** | 20,3 €/MWh |
+
+Die letzte Zeile ist die interessanteste: Mit der Schweiz teilt Deutschland
+praktisch nie den Preis, obwohl die Leitungen da sind und das Land mitten im
+Verbundnetz liegt. Der Grund ist institutionell — die Schweiz nimmt mangels
+Stromabkommen am gemeinsamen Auktionsverfahren nicht teil. Marktkopplung ist
+keine Eigenschaft des Netzes, sondern eine Verabredung, und man sieht in den
+Daten genau, wo sie gilt.
+
+Eine hohe Zahl heißt dabei nicht „gut verbunden", sondern nur: Zwischen diesen
+Zonen war noch Platz. Nach Norwegen ist das Seekabel fast durchgehend
+ausgelastet, weil deutscher Strom fast durchgehend teurer ist.
+
+## Erklärseiten mit nachgerechneten Zahlen
+
+Die Seiten `/speicher` und `/handel` erklären, was das Modell inzwischen kann,
+und tun das mit Zahlen statt mit Adjektiven. Jede dieser Zahlen steht in
+`tests/test_topics.py` noch einmal — zusammen mit der Messvorschrift, aus der
+sie stammt:
+
+```python
+("/handel", "−28,3 TWh", lambda m: m.saldo_twh(2024), 0.2),
+```
+
+Der Test prüft beides: dass der Ausschnitt so auf der gerenderten Seite steht
+und dass die Messung ihn bestätigt. Ändert jemand den Text, fällt es auf; ändert
+jemand Text und Prüfzeile gemeinsam, ohne nachzurechnen, fällt es ebenfalls auf.
+Geprüft werden nur abgeschlossene Jahre — bei einem laufenden würde sich die
+Zahl mit jedem Datenabruf verschieben, und ein Test, der von selbst rot wird,
+wird bald ignoriert.
+
+Was auf den Seiten steht, ist damit dieselbe Art Behauptung wie ein `expect` in
+einer geführten Geschichte: eine, die sich widerlegen lässt.
+
+Die Handelsseite zeigt die gemessene Außenhandelskurve als Diagramm. Sie kommt
+über `GET /api/exchange-curve` und ist dort gleichmäßig abgetastet: Die
+Stützstellen in `power_plants.json` liegen in ungleichen Preisabständen, und
+nebeneinandergesetzt ergäben sie ein verzerrtes Bild der Steigung — die Kurve
+sähe flacher aus, als sie ist.
+
 ## Zwei Szenarien nebeneinander
 
 Ein einzelnes Ergebnis beantwortet „was passiert?", nicht „was ändert sich
@@ -624,7 +819,10 @@ bestehenden Farben untereinander halten (10,5 und 7,2).
 | Was | Quelle | Hinweis |
 |---|---|---|
 | Last, Einspeisung, Großhandelspreis | [SMARD](https://www.smard.de), Bundesnetzagentur | Quelle bei Weitergabe nennen |
+| Day-Ahead-Preis je Viertelstunde | SMARD, derselbe Filter viertelstündlich | aussagekräftig erst ab Oktober 2025 |
+| Preise der Nachbarzonen | SMARD, eigene Filter je Zone | Zuordnung siehe Abschnitt unten |
 | Installierte Leistung | [Energy-Charts](https://energy-charts.info), Fraunhofer ISE | einmal jährlich nachpflegen |
+| Brennstoff- und CO₂-Preise | EEX, Weltbank, EZB | Monatswerte, siehe `fuel_ingest.py` |
 
 Beide Quellen sind öffentlich zugänglich und für die Weiterverwendung gedacht.
 Die genauen Nutzungsbedingungen sind vor einer kommerziellen Verwendung zu
@@ -642,12 +840,15 @@ website/
 │   ├── __init__.py             backend ist ein Paket — Importe ohne cwd-Trick
 │   ├── main.py                 Routen und API
 │   ├── analysis.py             Merit-Order und Dispatch
+│   ├── benchmark.py            Prüfsatz: Modell gegen tatsächlichen Preis
 │   ├── region.py               Zeitzone und Regionsschlüssel
 │   ├── data/
 │   │   ├── sources.py          Zeitreihenquellen: erzeugt oder gemessen
 │   │   ├── smard.py            Abruf von SMARD, nur Standardbibliothek
 │   │   ├── store.py            lokaler Speicher (SQLite)
 │   │   ├── capacity.py         installierte Leistung je Zeitpunkt
+│   │   ├── fuel_prices.py      Brennstoff- und CO₂-Preise je Monat
+│   │   ├── fuel_ingest.py      baut die Monatstabelle aus freien Quellen
 │   │   └── ingest.py           Abrufprogramm für cron
 │   ├── utils/profiles.py       erzeugte Last-, Wind- und PV-Profile
 │   ├── static_data/            Kraftwerkspark, Glossar, installierte Leistung
@@ -671,6 +872,9 @@ website/
             ├── scenario.js     Logik der Analyseseite, ohne DOM-Zugriff
             ├── analysis.js     Verdrahtung der Simulator-Seite
             ├── explain.js      Diagramme der Erklärseiten
+            ├── topics.js       Diagramme der Handels- und der Marktseite
+            ├── stories.js      geführte Geschichten
+            ├── compare.js      Vergleich zweier Szenarien
             └── glossary.js     Glossarsuche
 ```
 

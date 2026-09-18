@@ -12,6 +12,8 @@ website/backend/data_store/
 # Nur für die Frontend-Tests installiert (jsdom).
 website/node_modules/
 website/tests/frontend/analysis-page.html
+website/tests/frontend/trade-page.html
+website/tests/frontend/markets-page.html
 
 # Trainingsdaten der Forecast-Modelle. Enthalten lizenzierte Commodity-Preise
 # (Refinitiv/LSEG) und gehören deshalb nicht ins Repository.

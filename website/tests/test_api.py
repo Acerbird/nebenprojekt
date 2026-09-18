@@ -30,7 +30,8 @@ def setUpModule():
             % DEPENDENCIES_MISSING)
 
 
-PAGES = ["/", "/stromsystem", "/erneuerbare", "/analysen", "/glossar"]
+PAGES = ["/", "/stromsystem", "/erneuerbare", "/speicher", "/maerkte", "/handel",
+         "/analysen", "/glossar"]
 
 
 class ApiTestCase(unittest.TestCase):

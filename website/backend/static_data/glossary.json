@@ -63,6 +63,16 @@
     ]
   },
   {
+    "term": "Gebotszone",
+    "group": "Markt",
+    "definition": "Gebiet, in dem für dieselbe Zeitscheibe ein einziger Börsenpreis gilt. Deutschland und Luxemburg bilden eine Zone. Engpässe im Inneren tauchen deshalb nicht im Preis auf, sondern werden über Redispatch aufgelöst.",
+    "see_also": [
+      "Marktkopplung",
+      "Redispatch",
+      "Netzengpass"
+    ]
+  },
+  {
     "term": "Grenzkosten",
     "group": "Markt",
     "definition": "Die Kosten für die Erzeugung einer zusätzlichen Megawattstunde: Brennstoff geteilt durch Wirkungsgrad, plus CO₂-Kosten, plus variable Betriebskosten. Fixkosten und Abschreibungen zählen nicht dazu.",
@@ -81,6 +91,16 @@
     ]
   },
   {
+    "term": "Intraday-Handel",
+    "group": "Markt",
+    "definition": "Kontinuierlicher Handel nach der Day-Ahead-Auktion, bis wenige Minuten vor der Lieferung. Er gleicht aus, was anders kam als prognostiziert. Anders als bei der Auktion hat jedes Geschäft seinen eigenen Preis.",
+    "see_also": [
+      "Spotmarkt",
+      "Regelleistung",
+      "Gebotszone"
+    ]
+  },
+  {
     "term": "Kapazitätsfaktor",
     "group": "Erneuerbare",
     "definition": "Verhältnis der tatsächlich erzeugten Energie zur Energie bei durchgehender Volllast. Wind onshore liegt in Deutschland bei rund 20–25 %, offshore bei 40 %, Photovoltaik bei etwa 11 %.",
@@ -90,12 +110,31 @@
     ]
   },
   {
+    "term": "Kuppelkapazität",
+    "group": "Netz",
+    "definition": "Die Leistung, die an den Grenzen zwischen zwei Gebotszonen tatsächlich gehandelt werden kann. Sie ist kleiner als die verbaute Leitungsleistung, weil ein Teil für die Netzsicherheit freigehalten wird. Deutschland erreicht gemessen gut 11 GW Ausfuhr und rund 7 GW Einfuhr.",
+    "see_also": [
+      "Marktkopplung",
+      "Netzengpass"
+    ]
+  },
+  {
     "term": "Lastverschiebung",
     "group": "Flexibilität",
     "definition": "Verbrauch wird in Stunden mit niedrigen Preisen verlegt — Wärmepumpen, Elektroautos, industrielle Prozesse. Wirkt wie ein Speicher, ohne dass Energie zwischengespeichert wird.",
     "see_also": [
       "Speicher",
       "Residuallast"
+    ]
+  },
+  {
+    "term": "Marktkopplung",
+    "group": "Markt",
+    "definition": "Verfahren, das die Day-Ahead-Auktionen der europäischen Strombörsen in einem Rechenschritt gemeinsam räumt. Strom fließt dabei immer von der billigeren zur teureren Gebotszone, bis die Preise gleich sind oder die Grenzleitung voll ist. Der Handel folgt also dem Preis, nicht umgekehrt.",
+    "see_also": [
+      "Kuppelkapazität",
+      "Spotmarkt",
+      "Einheitspreisverfahren"
     ]
   },
   {
@@ -195,6 +234,16 @@
     "see_also": [
       "Einheitspreisverfahren",
       "Negative Preise"
+    ]
+  },
+  {
+    "term": "Viertelstundenkontrakt",
+    "group": "Markt",
+    "definition": "Kleinste Zeitscheibe der Day-Ahead-Auktion, seit Oktober 2025 europaweit Standard statt der Stunde. Die vier Viertelstunden einer Stunde bekommen verschiedene Preise — im Mittel liegen rund 23 €/MWh zwischen der teuersten und der billigsten.",
+    "see_also": [
+      "Spotmarkt",
+      "Speicher",
+      "Intraday-Handel"
     ]
   },
   {

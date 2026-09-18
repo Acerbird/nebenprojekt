@@ -539,3 +539,37 @@ tr.is-worse .diff-delta { color: var(--critical); }
   border-left: 3px solid var(--warning);
   border-radius: var(--radius-sm);
 }
+
+/* --------------------------------------------- Tabellen im Fließtext */
+
+/* Die Tabellenregeln oben gelten den Diagrammtabellen: rechtsbündig, eng,
+ * nicht umbrechend. Im Fließtext einer Erklärseite stört das — dort steht
+ * eine kleine Tabelle mit Beschriftung mitten im Text. */
+.data-table {
+  margin: 1.25rem 0;
+  max-width: var(--measure);
+  font-size: 0.92rem;
+}
+
+.data-table caption {
+  caption-side: top;
+  text-align: left;
+  padding-bottom: 0.5rem;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.data-table thead th {
+  position: static;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line, var(--grid));
+}
+
+.data-table th,
+.data-table td { white-space: normal; }
+
+.chart-error {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}

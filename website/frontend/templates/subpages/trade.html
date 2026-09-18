@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block description %}Import, Export und Marktkopplung — warum Deutschland seit 2023 Strom einführt und was das über den Preis aussagt.{% endblock %}
+{% block content %}
+<div class="page-head">
+  <span class="eyebrow">Grundlagen</span>
+  <h1>Handel mit den Nachbarn</h1>
+  <p class="lead">
+    Der deutsche Strommarkt endet nicht an der Grenze. Dreizehn Nachbarländer hängen am selben
+    Verbundnetz, und in gut zwei von drei Stunden fließt Strom nach Deutschland hinein.
+  </p>
+</div>
+
+<section class="prose">
+  <h2>Vom Exportland zum Importland</h2>
+  <p>
+    Jahrelang war der deutsche Außenhandelssaldo positiv. Seit 2023 ist er es nicht mehr — das
+    Jahr, in dem die letzten Kernkraftwerke vom Netz gingen:
+  </p>
+  <table class="data-table">
+    <caption>Physikalischer Stromaustausch Deutschlands, gemessen an den Grenzkuppelstellen</caption>
+    <thead>
+      <tr>
+        <th scope="col">Jahr</th><th scope="col">Ausfuhr</th><th scope="col">Einfuhr</th>
+        <th scope="col">Saldo</th><th scope="col">Stunden mit Einfuhr</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>2023</td><td>19,8 TWh</td><td>31,5 TWh</td><td>−11,7 TWh</td><td>58 %</td></tr>
+      <tr><td>2024</td><td>12,4 TWh</td><td>40,7 TWh</td><td>−28,3 TWh</td><td>73 %</td></tr>
+      <tr><td>2025</td><td>12,2 TWh</td><td>34,1 TWh</td><td>−21,9 TWh</td><td>70 %</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Die Zahl wird gern als Schwächezeichen gelesen. Das ist sie nicht — jedenfalls nicht
+    unmittelbar. Importiert wird, weil der Strom jenseits der Grenze in dieser Stunde billiger
+    ist als das teuerste deutsche Kraftwerk, das sonst laufen müsste. Norwegische Wasserkraft,
+    französische Kernkraft und dänischer Wind unterbieten in vielen Stunden eine deutsche
+    Gasturbine. Jede eingeführte Kilowattstunde senkt also den deutschen Preis, statt ihn zu
+    treiben.
+  </p>
+
+  <h2>Der Handel folgt dem Preis</h2>
+  <p>
+    Das ist die Richtung, die man leicht verwechselt: Nicht der Import bestimmt den Preis,
+    sondern der Preis bestimmt den Import. Die europäische <strong>Marktkopplung</strong> räumt
+    alle gekoppelten Börsen in einem Rechenschritt und schickt den Strom immer von der billigen
+    zur teuren Seite, bis entweder die Preise gleich sind oder die Leitung voll ist.
+  </p>
+  <p>
+    Im Messwert sieht man das sehr sauber. Sortiert man 32 711 Stunden nach dem deutschen
+    Day-Ahead-Preis und bildet je Preisklasse den mittleren Austausch, ergibt sich eine über den
+    ganzen Bereich fallende Kurve:
+  </p>
+  <figure class="chart" id="chart-exchange">
+    <figcaption class="chart-head">
+      <div class="chart-title">Außenhandel nach Preisklasse</div>
+      <div class="chart-sub">Medianer Nettoexport je Stunde, positiv bei Ausfuhr — SMARD, Dez. 2022 bis Sep. 2026</div>
+    </figcaption>
+  </figure>
+  <p>
+    Bei Preisen unter −20 €/MWh führt Deutschland im Mittel 9,4 GW aus: Der Überschuss aus Wind
+    und Sonne sucht sich einen Abnehmer, und die Nachbarn nehmen ihn, weil sie dafür bezahlt
+    werden. Über 150 €/MWh kehrt sich das um — dann führt Deutschland 6,9 GW ein.
+  </p>
+
+  <div class="note">
+    <strong>Wie das Modell den Handel abbildet</strong>
+    <p>
+      Genau diese gemessene Kurve steckt im <a href="/analysen">Simulator</a>, und zwar auf der
+      Nachfrageseite: Der Außenhandel ist keine feste Menge, sondern ein zusätzlicher Käufer,
+      der bei tiefen Preisen viel und bei hohen Preisen nichts mehr abnimmt. Das ist nicht nur
+      genauer, sondern die einzig richtige Richtung — der Handel reagiert auf den Preis, nicht
+      umgekehrt.
+    </p>
+  </div>
+
+  <h2>Wie die Kopplung tatsächlich rechnet</h2>
+  <p>
+    Hinter der Marktkopplung steht ein einziger Algorithmus, <strong>Euphemia</strong>, der die
+    Day-Ahead-Auktionen von rund zwei Dutzend Ländern gleichzeitig räumt: alle Gebote, alle
+    Gebotszonen, alle Grenzkapazitäten in einem Optimierungslauf. Das Verfahren heißt
+    <strong>SDAC</strong> — Single Day-Ahead Coupling. Für den kontinuierlichen Intraday-Handel
+    gibt es die Entsprechung <strong>SIDC</strong>: Ein gemeinsames Orderbuch führt Gebote über
+    Grenzen hinweg zusammen, solange dort noch Kapazität frei ist.
+  </p>
+  <p>
+    Wie viel Kapazität frei ist, wird in der Kernregion seit 2022 nicht mehr je Grenze
+    festgelegt, sondern <strong>lastflussbasiert</strong>: Der Algorithmus rechnet mit, wie sich
+    ein Handelsgeschäft physikalisch über das ganze Netz verteilt. Strom von Frankreich nach
+    Deutschland fließt eben auch über Belgien. Dadurch lässt sich mehr Handel zulassen als bei
+    starren Grenzkontingenten — aber die Rechnung wird undurchsichtiger, und welche Leitung am
+    Ende der Engpass war, ist nicht mehr an einer Zahl abzulesen.
+  </p>
+
+  <h2>Die Leitung ist die Grenze</h2>
+  <p>
+    Wie viel überhaupt fließen kann, entscheidet die <strong>Kuppelkapazität</strong>. In
+    Einzelstunden erreicht Deutschland gemessen bis zu 19,4 GW Ausfuhr und 17,1 GW Einfuhr.
+    Die Kurve oben bleibt deutlich darunter, weil sie je Preisklasse den Median zeigt und nicht
+    den Ausreißer — im Modell ist sie auf 11 GW Ausfuhr und 7 GW Einfuhr begrenzt.
+  </p>
+  <p>
+    Ist die Kapazität ausgeschöpft, laufen die Preise auseinander: Die billige Seite bleibt
+    billig, weil ihr Überschuss nicht abfließen kann. Genau das ist der Grund, warum es in
+    Europa keinen einheitlichen Strompreis gibt, obwohl alle am selben Algorithmus hängen.
+    Der deutsche Außenhandelssaldo verrät davon allerdings wenig: Er summiert über alle
+    Grenzen, und eine volle Leitung nach Dänemark verschwindet in der Summe mit einer leeren
+    nach Österreich. Wo es klemmt, zeigen erst die Preise der Nachbarzonen selbst.
+  </p>
+  <p>
+    Das erklärt auch, warum Netzausbau über die Grenze hinweg dieselbe Wirkung hat wie ein
+    Speicher: Beides verschiebt Strom von dort, wo er im Überfluss da ist, dorthin, wo er fehlt
+    — das eine räumlich, das andere zeitlich. Wie viel ein Speicher damit verdient, steht auf
+    der Seite zu den <a href="/maerkte">kurzfristigen Märkten</a>.
+  </p>
+
+  <h2>Woran man sieht, dass die Kopplung wirkt</h2>
+  <p>
+    Wenn zwei gekoppelte Zonen genug freie Leitung zwischen sich haben, räumt der gemeinsame
+    Algorithmus beide zum <em>exakt selben</em> Preis — dann ist der Unterschied nicht klein,
+    sondern null. Das lässt sich zählen. Für 23 209 Stunden von Januar 2024 bis August 2026,
+    jeweils deutscher Preis gegen den der Nachbarzone:
+  </p>
+  <table class="data-table">
+    <caption>Anteil der Stunden mit identischem Day-Ahead-Preis, und der mittlere Abstand
+      über alle Stunden</caption>
+    <thead>
+      <tr>
+        <th scope="col">Zone</th><th scope="col">gleicher Preis</th>
+        <th scope="col">Ø Abstand</th><th scope="col">Deutschland billiger</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Dänemark 1</td><td>49,0 %</td><td>8,5 €/MWh</td><td>11,0 %</td></tr>
+      <tr><td>Dänemark 2</td><td>32,0 %</td><td>9,6 €/MWh</td><td>22,3 %</td></tr>
+      <tr><td>Niederlande</td><td>15,5 %</td><td>6,7 €/MWh</td><td>28,9 %</td></tr>
+      <tr><td>Österreich</td><td>11,8 %</td><td>13,1 €/MWh</td><td>59,7 %</td></tr>
+      <tr><td>Belgien</td><td>11,3 %</td><td>11,6 €/MWh</td><td>31,2 %</td></tr>
+      <tr><td>Tschechien</td><td>11,2 %</td><td>10,1 €/MWh</td><td>61,7 %</td></tr>
+      <tr><td>Frankreich</td><td>10,8 %</td><td>29,3 €/MWh</td><td>24,4 %</td></tr>
+      <tr><td>Polen</td><td>6,6 %</td><td>20,4 €/MWh</td><td>70,8 %</td></tr>
+      <tr><td>Schweden 4</td><td>5,4 %</td><td>30,7 €/MWh</td><td>18,6 %</td></tr>
+      <tr><td>Norwegen 2</td><td>1,3 %</td><td>29,5 €/MWh</td><td>22,5 %</td></tr>
+      <tr><td>Schweiz</td><td>0,1 %</td><td>20,3 €/MWh</td><td>61,6 %</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Die Spannweite ist der eigentliche Befund. Mit Dänemark teilt Deutschland in fast jeder
+    zweiten Stunde denselben Preis — dort reicht die Leitung meistens. Mit Norwegen dagegen
+    kaum je: Das Seekabel dorthin ist fast durchgehend ausgelastet, weil deutscher Strom
+    fast durchgehend teurer ist. Eine hohe Zahl heißt also nicht „gute Nachbarschaft", sondern
+    schlicht: Zwischen diesen beiden Zonen war noch Platz.
+  </p>
+
+  <div class="note">
+    <strong>Die Schweiz ist der Gegenbeweis</strong>
+    <p>
+      Eine Zone in der Tabelle fällt heraus: Mit der Schweiz teilt Deutschland in
+      <strong>0,1 %</strong> der Stunden den Preis — praktisch nie, obwohl die Leitungen da
+      sind und obwohl das Land mitten im europäischen Verbundnetz liegt. Der Grund ist kein
+      technischer: Die Schweiz nimmt mangels Stromabkommen mit der EU am gemeinsamen
+      Auktionsverfahren nicht teil. Gehandelt wird über gesonderte Auktionen, und die
+      Preisgleichheit, die die Kopplung sonst erzeugt, entsteht dabei nicht. Marktkopplung ist
+      also keine Eigenschaft des Netzes, sondern eine Verabredung — und man sieht in den
+      Zahlen genau, wo sie gilt.
+    </p>
+  </div>
+
+  <div class="note">
+    <strong>Eine Gebotszone für ganz Deutschland</strong>
+    <p>
+      Innerhalb einer Gebotszone gilt ein Preis — auch dann, wenn das Netz im Inneren an seine
+      Grenze stößt. Deutschland und Luxemburg bilden eine solche Zone. Der Engpass zwischen
+      Nord und Süd taucht deshalb nicht im Preis auf, sondern muss hinterher über
+      <strong>Redispatch</strong> aufgelöst werden: Im Norden wird abgeregelt, im Süden teurer
+      nachgefahren, und die Kosten landen in den Netzentgelten. Ob eine Teilung in mehrere
+      Zonen das besser löste, ist die am längsten laufende Streitfrage der europäischen
+      Strommarktordnung.
+    </p>
+  </div>
+
+  <h2>Was Import nicht heißt</h2>
+  <p>
+    Zwei Missverständnisse halten sich hartnäckig. Erstens: Import bedeutet nicht, dass der
+    Strom im Land nicht reicht. In den allermeisten Importstunden stehen deutsche Kraftwerke
+    bereit und laufen nur deshalb nicht, weil sie teurer wären. Zweitens: Der eingeführte Strom
+    ist kein Sonderfall „Atomstrom aus Frankreich". Wer im Verbundnetz kauft, kauft die
+    Erzeugung der gesamten gekoppelten Region — physikalisch ist der Strom in der Leitung
+    ohnehin nicht unterscheidbar.
+  </p>
+  <p>
+    Was der Saldo dagegen sehr wohl zeigt: Deutschland hat gesicherte Leistung abgebaut und
+    ersetzt sie in knappen Stunden über den Markt. Ob das tragfähig ist, hängt daran, ob die
+    Nachbarn in denselben Stunden Überschuss haben — und eine winterliche Dunkelflaute trifft
+    selten Deutschland allein.
+  </p>
+</section>
+
+<div class="cta-row">
+  <a class="btn btn-primary" href="/analysen">Szenarien durchrechnen</a>
+  <a class="btn btn-secondary" href="/glossar">Begriffe nachschlagen</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/topics.js" type="module"></script>
+{% endblock %}

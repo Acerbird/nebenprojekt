@@ -11,20 +11,24 @@ import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const snapshotPath = join(here, "analysis-page.html");
 
-/** Die gerenderte Analyseseite in ein Dokument laden. */
-export function loadPage() {
+/** Die gerenderte Analyseseite in ein Dokument laden.
+ *
+ * Mit `datei` und `pfad` lässt sich stattdessen eine andere abgelegte Seite
+ * laden — etwa die Handelsseite, deren Diagramm aus einem eigenen Modul kommt.
+ */
+export function loadPage(datei = "analysis-page.html", pfad = "/analysen") {
+  const snapshotPath = join(here, datei);
   if (!existsSync(snapshotPath)) {
     throw new Error(
-      "Die gerenderte Analyseseite fehlt. Sie entsteht beim Testlauf über ./test.sh; " +
+      "Die gerenderte Seite " + datei + " fehlt. Sie entsteht beim Testlauf über ./test.sh; " +
       "einzeln erzeugen mit:\n" +
       "  backend/.venv/bin/python -c \"from fastapi.testclient import TestClient; " +
       "from backend.main import app; " +
-      "open('tests/frontend/analysis-page.html','w').write(TestClient(app).get('/analysen').text)\"");
+      "open('tests/frontend/" + datei + "','w').write(TestClient(app).get('" + pfad + "').text)\"");
   }
   const html = readFileSync(snapshotPath, "utf-8");
-  const dom = new JSDOM(html, { url: "https://example.org/analysen" });
+  const dom = new JSDOM(html, { url: "https://example.org" + pfad });
   const { window } = dom;
 
   // FormData und URLSearchParams stammen aus dem Fenster, damit sie das

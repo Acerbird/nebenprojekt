@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block description %}Day-Ahead, Intraday und Regelleistung — welche Märkte kurz vor der Lieferung noch offen sind und woran ein Speicher wirklich verdient.{% endblock %}
+{% block content %}
+<div class="page-head">
+  <span class="eyebrow">Grundlagen</span>
+  <h1>Kurzfristige Märkte</h1>
+  <p class="lead">
+    „Der Strompreis" ist eine Vereinfachung. Bis zum Moment der Lieferung wird dieselbe
+    Kilowattstunde auf mehreren Märkten nacheinander gehandelt — und für einen Speicher
+    entscheidet sich genau dort, ob er sich rechnet.
+  </p>
+</div>
+
+<section class="prose">
+  <h2>Eine Zeitachse, vier Märkte</h2>
+  <p>
+    Jeder Markt schließt eine Lücke, die der vorherige offen gelassen hat. Je näher die
+    Lieferung rückt, desto genauer weiß man, was Wind und Sonne tatsächlich tun — und desto
+    teurer wird es, sich noch zu korrigieren.
+  </p>
+  <table class="data-table">
+    <caption>Die Handelsstufen vor einer Lieferstunde</caption>
+    <thead>
+      <tr><th scope="col">Markt</th><th scope="col">Wann</th><th scope="col">Wofür</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Terminmarkt</td><td>Jahre bis Tage vorher</td>
+        <td>Preis absichern, nicht Strom beschaffen</td>
+      </tr>
+      <tr>
+        <td>Day-Ahead</td><td>12:00 Uhr am Vortag</td>
+        <td>eine Auktion für alle Zeitscheiben des Folgetages</td>
+      </tr>
+      <tr>
+        <td>Intraday</td><td>bis 5 Minuten vor Lieferung</td>
+        <td>Prognosefehler und Kraftwerksausfälle ausgleichen</td>
+      </tr>
+      <tr>
+        <td>Regelleistung</td><td>vorher ausgeschrieben, in Sekunden abgerufen</td>
+        <td>das Gleichgewicht halten, wenn es trotzdem nicht aufgeht</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Der <a href="/analysen">Simulator</a> dieser Seite bildet nur die zweite Stufe ab: eine
+    Auktion je Zeitscheibe, ein Preis für alle. Das ist die Stufe, an der sich der
+    Kraftwerkseinsatz entscheidet — aber eben nicht die letzte.
+  </p>
+
+  <h2>Seit Oktober 2025 rechnet der Markt in Viertelstunden</h2>
+  <p>
+    Bis September 2025 wurden am Day-Ahead-Markt Stundenkontrakte geräumt. Seit dem
+    1. Oktober 2025 sind es <strong>Viertelstunden</strong> — europaweit, im selben
+    Auktionsverfahren. Der Unterschied ist keine Formsache: Die vier Viertelstunden einer
+    Stunde bekommen seither verschiedene Preise, und zwar deutlich verschiedene.
+  </p>
+  <table class="data-table">
+    <caption>Spreizung zwischen der teuersten und der billigsten Viertelstunde <em>innerhalb</em>
+      derselben Stunde, 7 922 Stunden von Oktober 2025 bis August 2026</caption>
+    <thead>
+      <tr><th scope="col">Mittelwert</th><th scope="col">Median</th><th scope="col">Höchstwert</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>23,2 €/MWh</td><td>14,6 €/MWh</td><td>460 €/MWh</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Der Grund steht am Himmel. Eine Stunde ist für eine Photovoltaikrampe eine lange Zeit: Geht
+    am Abend die Sonne unter, ist die letzte Viertelstunde der Stunde eine völlig andere
+    Marktlage als die erste. Vorher musste der Stundenpreis beides mitteln, jetzt nicht mehr.
+  </p>
+  <figure class="chart" id="chart-quarter">
+    <figcaption class="chart-head">
+      <div class="chart-title">Ein Tag, zwei Zeitscheiben</div>
+      <div class="chart-sub">Day-Ahead-Preis am 7. April 2026 — dieselbe Auktion, einmal je Stunde
+        und einmal je Viertelstunde</div>
+    </figcaption>
+  </figure>
+  <p>
+    Gut zu sehen ist beides: Mittags drückt die Photovoltaik den Preis unter null, und die
+    Viertelstunden gehen dabei deutlich tiefer als die Stundentreppe. Abends dreht es sich um —
+    die teuerste Viertelstunde liegt spürbar über dem Stundenpreis, der sie mit ihren drei
+    ruhigeren Nachbarinnen verrechnet.
+  </p>
+
+  <h2>Woran ein Speicher verdient</h2>
+  <p>
+    Damit ändert sich die Rechnung für Speicher. Wer nur Stundenkontrakte handelt, kauft und
+    verkauft einen Mittelwert; wer Viertelstunden handelt, trifft die Spitze. Und die liegt
+    meistens woanders: <strong>An nur 38 % der Tage fällt die teuerste Viertelstunde in die
+    teuerste Stunde.</strong> An den übrigen knapp zwei Dritteln verpasst der Stundenhändler den
+    Höchstpreis des Tages.
+  </p>
+  <p>
+    Was das wert ist, lässt sich ausrechnen — ein Zyklus je Tag, 88 % Wirkungsgrad, gekauft in
+    den billigsten und verkauft in den teuersten Zeitscheiben des Tages, gemittelt über
+    330 Tage von Oktober 2025 bis August 2026:
+  </p>
+  <table class="data-table">
+    <caption>Deckungsbeitrag je MWh Zyklus, nach Vorrat des Speichers</caption>
+    <thead>
+      <tr>
+        <th scope="col">Vorrat</th><th scope="col">nur Stundenkontrakte</th>
+        <th scope="col">Viertelstunden</th><th scope="col">Unterschied</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1 Stunde</td><td>112,8 €</td><td>123,8 €</td><td>+10 %</td></tr>
+      <tr><td>2 Stunden</td><td>107,9 €</td><td>114,6 €</td><td>+6 %</td></tr>
+      <tr><td>4 Stunden</td><td>94,2 €</td><td>98,7 €</td><td>+5 %</td></tr>
+      <tr><td>8 Stunden</td><td>69,1 €</td><td>72,2 €</td><td>+4 %</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Zwei Dinge stehen in dieser Tabelle. Erstens: Je kürzer der Vorrat, desto mehr bringt die
+    feinere Zeitscheibe — ein Speicher, der nur eine Stunde durchhält, lebt von genau den
+    Spitzen, die der Stundenkontrakt wegmittelt. Zweitens: Je länger der Vorrat, desto weniger
+    Deckungsbeitrag je Megawattstunde. Ein Achtstundenspeicher muss auch die mittelmäßigen
+    Stunden mitnehmen, um voll zu werden. Dafür bewegt er mehr Energie — beides zusammen
+    ergibt erst den Erlös.
+  </p>
+
+  <div class="note">
+    <strong>Was diese Rechnung nicht ist</strong>
+    <p>
+      Ein Deckungsbeitrag ist kein Gewinn. Abgezogen sind hier nur die Umwandlungsverluste —
+      nicht Netzentgelte, Abgaben, Alterung der Batterie, Handelskosten oder das Kapital für den
+      Bau. Und gerechnet wird mit perfekter Voraussicht: Die billigsten und teuersten
+      Zeitscheiben des Tages kennt man erst hinterher. Die Zahlen sind eine Obergrenze dessen,
+      was der Markt hergegeben hätte, kein Betriebsergebnis.
+    </p>
+  </div>
+
+  <h2>Intraday: der Markt für das, was anders kam</h2>
+  <p>
+    Nach der Day-Ahead-Auktion steht ein Fahrplan — und dann weht der Wind anders als
+    vorhergesagt. Der Intraday-Handel korrigiert das, kontinuierlich und bis wenige Minuten vor
+    der Lieferung. Anders als Day-Ahead ist er keine Auktion mit einem Preis für alle: Jedes
+    Geschäft hat seinen eigenen Preis, wie an einer Börse für Aktien.
+  </p>
+  <p>
+    Für Speicher und flexible Verbraucher ist das der eigentlich interessante Markt, weil die
+    Preisausschläge dort am größten sind. Wer in dem Moment einspringen kann, in dem einem
+    anderen die Prognose zusammenbricht, verkauft teuer — und muss dafür nichts weiter können,
+    als schnell zu sein.
+  </p>
+
+  <h2>Regelleistung: bezahlt fürs Bereitstehen</h2>
+  <p>
+    Was auch der Intraday-Handel nicht auffängt, übernehmen die Übertragungsnetzbetreiber mit
+    <strong>Regelleistung</strong>. Anbieter werden hier für zweierlei bezahlt: dafür, dass sie
+    Leistung vorhalten, und dafür, dass sie im Abruffall liefern. Ein Batteriespeicher ist dafür
+    ideal — er reagiert in Millisekunden und muss nichts anfahren.
+  </p>
+  <p>
+    Das war lange das Hauptgeschäft der ersten Großbatterien in Deutschland. Mit jedem neuen
+    Speicher wurde dieser Markt allerdings voller, die Preise fielen, und der Erlös verschob
+    sich zur Arbitrage auf Day-Ahead und Intraday. Wer heute einen Speicher baut, rechnet mit
+    einem Bündel aus mehreren Erlösquellen — und die Viertelstunde hat dieses Bündel gerade
+    spürbar aufgewertet.
+  </p>
+</section>
+
+<div class="cta-row">
+  <a class="btn btn-primary" href="/speicher">Zurück zu den Speichern</a>
+  <a class="btn btn-secondary" href="/handel">Wie die Kopplung rechnet</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/topics.js" type="module"></script>
+{% endblock %}
