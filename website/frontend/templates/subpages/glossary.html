@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block description %}Begriffe aus Strommarkt, Netz und Kraftwerkstechnik — kurz erklärt und untereinander verlinkt.{% endblock %}
+{% block content %}
+<div class="page-head">
+  <span class="eyebrow">Nachschlagen</span>
+  <h1>Glossar</h1>
+  <p class="lead">
+    Die Begriffe, die auf den anderen Seiten vorkommen — jeweils in zwei, drei Sätzen
+    und mit Querverweisen.
+  </p>
+</div>
+
+<div class="glossary-search">
+  <div class="field">
+    <label for="glossary-search">Suchen</label>
+    <input type="search" id="glossary-search" placeholder="z. B. Merit-Order, Redispatch, Speicher" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="glossary-group">Bereich</label>
+    <select id="glossary-group">
+      <option value="alle">Alle Bereiche</option>
+      {% for group in groups %}
+      <option value="{{ group }}">{{ group }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <span class="status" id="glossary-count" role="status"></span>
+</div>
+
+<div class="glossary-list" id="glossary-list">
+  {% for entry in entries %}
+  <article class="glossary-entry"
+           data-group="{{ entry.group }}"
+           data-haystack="{{ entry.term }} {{ entry.group }} {{ entry.definition }}">
+    <h3 id="{{ entry.term | lower | replace(' ', '-') | replace('₂', '2') }}">{{ entry.term }}</h3>
+    <span class="tag">{{ entry.group }}</span>
+    <p>{{ entry.definition }}</p>
+    {% if entry.see_also %}
+    <div class="see-also">
+      Siehe auch:
+      {% for other in entry.see_also %}<a href="#" data-term="{{ other }}">{{ other }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+<p class="empty-state" hidden>Kein Begriff passt zur Suche. Andere Schreibweise probieren oder den Bereichsfilter zurücksetzen.</p>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/glossary.js" type="module"></script>
+{% endblock %}

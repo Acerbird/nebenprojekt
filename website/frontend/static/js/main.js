@@ -1,22 +1,44 @@
-// frontend/static/js/main.js
-// Small enhancement and accessible hover cursor
-document.documentElement.lang = 'de';
+/* Seitenweite Kleinigkeiten: Farbschema-Umschalter und ein Hinweis, falls das
+ * Backend nicht erreichbar ist. */
 
-// accessible focus styles for keyboard users
-document.addEventListener('keyup', (e) => {
-  if (e.key === 'Tab') {
-    document.body.classList.add('user-is-tabbing');
-  }
-});
+const STORAGE_KEY = "energiewende-theme";
 
-// optional: fetch health when page loads (example usage)
-async function checkHealth(){
-  try{
-    const r = await fetch('/health');
-    const j = await r.json();
-    if (j.status !== 'ok') console.warn('Backend health not ok', j);
-  }catch(e){
-    console.warn('Cannot reach backend', e);
+function systemTheme() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const button = document.querySelector(".theme-toggle");
+  if (!button) return;
+  const dark = theme === "dark";
+  button.textContent = dark ? "☀" : "☾";
+  button.setAttribute("aria-label", dark ? "Zu hellem Farbschema wechseln" : "Zu dunklem Farbschema wechseln");
+  button.setAttribute("aria-pressed", String(dark));
+}
+
+function initTheme() {
+  let stored = null;
+  try { stored = localStorage.getItem(STORAGE_KEY); } catch { /* privater Modus */ }
+  applyTheme(stored || systemTheme());
+
+  const button = document.querySelector(".theme-toggle");
+  if (!button) return;
+  button.addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    applyTheme(next);
+    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* egal */ }
+  });
+}
+
+async function checkBackend() {
+  try {
+    const response = await fetch("/health");
+    if (!response.ok) throw new Error(String(response.status));
+  } catch (error) {
+    console.warn("Backend nicht erreichbar:", error);
   }
 }
-checkHealth();
+
+initTheme();
+checkBackend();

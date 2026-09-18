@@ -1,36 +1,61 @@
-<!-- frontend/templates/index.html -->
 {% extends "base.html" %}
 {% block content %}
 <section class="hero">
-  <div class="hero-card">
-    <span class="eyebrow">Projekt</span>
-    <h2>Stromsystem verstehen — interaktiv & wissenschaftlich</h2>
-    <p class="lead">Interaktive Analysen, erklärende Artikel und simulationsbasierte Tools rund um das Thema Strommarkt und erneuerbare Energien.</p>
-
-    <div class="cta-row">
-      <a class="btn-primary" href="/analysis">Analysen entdecken</a>
-      <a class="btn-ghost-light" href="#learn">Mehr erfahren</a>
-      <span class="pill">Open Science</span>
-    </div>
-
-    <div class="features" id="learn">
-      <div class="feature">
-        <h3>Merit-Order</h3>
-        <p>Wie Preise durch die Reihenfolge der Einspeisung entstehen.</p>
-      </div>
-      <div class="feature">
-        <h3>Erneuerbare</h3>
-        <p>Einfluss von Wind, Sonne und Speichern auf Preis und Netzstabilität.</p>
-      </div>
-      <div class="feature">
-        <h3>Simulation</h3>
-        <p>Parameter anpassen – Beispielrechnungen live ausführen.</p>
-      </div>
-    </div>
+  <span class="eyebrow">Lernprojekt</span>
+  <h1>Wie der Strompreis entsteht</h1>
+  <p class="lead">
+    Jede Stunde entscheidet sich neu, welche Kraftwerke laufen und was Strom kostet.
+    Diese Seite erklärt die Mechanik dahinter — und lässt sie in einem kleinen Modell
+    des deutschen Stromsystems durchrechnen.
+  </p>
+  <div class="cta-row">
+    <a class="btn btn-primary" href="/analysen">Simulation öffnen</a>
+    <a class="btn btn-secondary" href="/stromsystem">Erst die Grundlagen</a>
   </div>
+</section>
 
-  <aside>
-    <div class="showcase">Visual: Netz / Wind / Solar</div>
-  </aside>
+<div class="card-grid">
+  <a class="card" href="/stromsystem">
+    <h3>Stromsystem</h3>
+    <p>Last, Residuallast, Merit-Order und warum alle Kraftwerke denselben Preis bekommen.</p>
+    <span class="card-more">Grundlagen lesen →</span>
+  </a>
+  <a class="card" href="/erneuerbare">
+    <h3>Erneuerbare</h3>
+    <p>Wind und Sonne liefern nach Wetter, nicht nach Bedarf. Was das für Preise und Speicher bedeutet.</p>
+    <span class="card-more">Weiterlesen →</span>
+  </a>
+  <a class="card" href="/analysen">
+    <h3>Analysen</h3>
+    <p>Zubau, CO₂-Preis und Gaspreis verändern — und sehen, wie Preis, Emissionen und Abregelung reagieren.</p>
+    <span class="card-more">Modell starten →</span>
+  </a>
+  <a class="card" href="/glossar">
+    <h3>Glossar</h3>
+    <p>25 Begriffe aus Markt, Netz und Technik, kurz erklärt und untereinander verlinkt.</p>
+    <span class="card-more">Nachschlagen →</span>
+  </a>
+</div>
+
+<section class="prose">
+  <h2>Die Kurzfassung</h2>
+  <p>
+    Strom lässt sich kaum speichern: Erzeugung und Verbrauch müssen sich in jedem Moment
+    die Waage halten. Der Markt löst das über den Preis. Alle Kraftwerke bieten mit ihren
+    <strong>Grenzkosten</strong> — den Kosten für die nächste Megawattstunde. Die Gebote werden
+    aufsteigend sortiert, die Nachfrage von unten nach oben gedeckt, und das teuerste noch
+    benötigte Kraftwerk setzt den Preis für alle. Das ist die <strong>Merit-Order</strong>.
+  </p>
+  <p>
+    Wind- und Solaranlagen haben keine Brennstoffkosten und stehen deshalb ganz vorn. Je mehr
+    sie einspeisen, desto weiter rutscht die Nachfrage nach links — teure Kraftwerke fallen aus
+    dem Markt, der Preis sinkt. Umgekehrt bestimmen in einer <strong>Dunkelflaute</strong>
+    Gasturbinen den Preis, und er steigt deutlich.
+  </p>
+  <p>
+    Der <a href="/analysen">Simulator</a> rechnet genau diesen Mechanismus über mehrere Tage
+    durch — mit einem vereinfachten deutschen Kraftwerkspark, echten Grenzkostenformeln und
+    wetterabhängigen Einspeiseprofilen.
+  </p>
 </section>
 {% endblock %}

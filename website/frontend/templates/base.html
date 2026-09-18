@@ -1,45 +1,60 @@
-<!-- frontend/templates/base.html -->
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Energiewende — {{ title if title else 'Start' }}</title>
-
-  <link href="/static/css/style.css" rel="stylesheet">
-  <!-- Plotly CDN (used in analysis page) -->
-  <script src="https://cdn.plot.ly/plotly-2.25.0.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — Energiewende</title>
+  <meta name="description" content="{% block description %}Wie der deutsche Strommarkt funktioniert — erklärt und mit einem Merit-Order-Modell zum Ausprobieren.{% endblock %}">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  <script>
+    // Farbschema vor dem ersten Zeichnen setzen, damit die Seite nicht aufblitzt.
+    (function () {
+      try {
+        var stored = localStorage.getItem("energiewende-theme");
+        var dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      } catch (e) { /* privater Modus: Systemeinstellung greift über die Media Query */ }
+    })();
+  </script>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="brand">
-        <div class="logo">⚡</div>
-        <div>
-          <h1>Energiewende</h1>
-          <div class="kicker">Strommarkt & Erneuerbare — Analysen</div>
-        </div>
-      </div>
+  <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
 
-      <nav>
-        <a href="/">Home</a>
-        <a href="/analysis">Analysen</a>
-        <a href="#">Stromsystem</a>
-        <a href="#">Erneuerbare</a>
-        <a href="#">Glossar</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">⚡</span>
+        <span class="brand-name">
+          Energiewende
+          <small>Strommarkt verstehen</small>
+        </span>
+      </a>
+
+      <nav class="site-nav" aria-label="Hauptnavigation">
+        {% for item in nav %}
+        <a href="{{ item.href }}"{% if item.key == active %} aria-current="page"{% endif %}>{{ item.label }}</a>
+        {% endfor %}
       </nav>
-    </header>
 
-    <main>
+      <button class="theme-toggle" type="button" aria-label="Farbschema wechseln">☾</button>
+    </div>
+  </header>
+
+  <main id="inhalt">
+    <div class="container">
       {% block content %}{% endblock %}
-    </main>
+    </div>
+  </main>
 
-    <footer>
-      <div>© Energiewende — Demo 2025</div>
-      <div class="muted">Quelle: Demo-Daten • Forschungsprojekt</div>
-    </footer>
-  </div>
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>Lernprojekt zum deutschen Stromsystem. Modellrechnungen, keine Prognose.</div>
+      <div><a href="/docs">API-Dokumentation</a> · <a href="/glossar">Glossar</a></div>
+    </div>
+  </footer>
 
-  <script src="/static/js/main.js"></script>
+  <script src="/static/js/main.js" type="module"></script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

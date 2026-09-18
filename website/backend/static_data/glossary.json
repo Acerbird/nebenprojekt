@@ -1,0 +1,226 @@
+[
+  {
+    "term": "Abregelung",
+    "group": "Erneuerbare",
+    "definition": "Erneuerbare Anlagen werden gedrosselt, weil mehr Strom verfügbar ist als verbraucht oder abtransportiert werden kann. Auch Einspeisemanagement genannt; die Betreiber werden dafür entschädigt.",
+    "see_also": [
+      "Negative Preise",
+      "Redispatch"
+    ]
+  },
+  {
+    "term": "Brennstoffwechsel",
+    "group": "Markt",
+    "definition": "Der Punkt, an dem Gaskraftwerke günstiger produzieren als Kohlekraftwerke, weil der CO₂-Preis die emissionsintensivere Kohle stärker verteuert. Der zentrale kurzfristige Hebel des Emissionshandels.",
+    "see_also": [
+      "CO₂-Preis",
+      "Merit-Order"
+    ]
+  },
+  {
+    "term": "CO₂-Preis",
+    "group": "Markt",
+    "definition": "Preis eines Emissionszertifikats im europäischen Emissionshandel (EU ETS). Er geht in die Grenzkosten ein und kann die Reihenfolge von Kohle und Gas in der Merit-Order umkehren.",
+    "see_also": [
+      "Emissionsfaktor",
+      "Brennstoffwechsel"
+    ]
+  },
+  {
+    "term": "Dunkelflaute",
+    "group": "Erneuerbare",
+    "definition": "Mehrtägige Wetterlage mit wenig Wind und wenig Sonne, typisch für Hochdrucklagen im Winter. Der kritische Fall für die Versorgungssicherheit, weil Batteriespeicher nur Stunden überbrücken.",
+    "see_also": [
+      "Residuallast",
+      "Speicher"
+    ]
+  },
+  {
+    "term": "Einheitspreisverfahren",
+    "group": "Markt",
+    "definition": "Am Spotmarkt erhalten alle bezuschlagten Kraftwerke denselben Preis — den des teuersten benötigten Blocks. Günstigere Anlagen verdienen die Differenz als Deckungsbeitrag für ihre Fixkosten.",
+    "see_also": [
+      "Merit-Order",
+      "Spotmarkt"
+    ]
+  },
+  {
+    "term": "Emissionsfaktor",
+    "group": "Technik",
+    "definition": "CO₂-Ausstoß je Einheit Brennstoffenergie. Braunkohle liegt bei rund 0,40 t/MWh thermisch, Erdgas bei 0,20 t/MWh — bezogen auf die erzeugte Kilowattstunde vergrößert der Wirkungsgrad den Unterschied noch.",
+    "see_also": [
+      "CO₂-Preis",
+      "Wirkungsgrad"
+    ]
+  },
+  {
+    "term": "Gasturbine",
+    "group": "Technik",
+    "definition": "Kraftwerk, das in Minuten aus dem Stillstand auf Volllast fährt. Der niedrige Wirkungsgrad macht es teuer, die Schnelligkeit unverzichtbar — es läuft nur in wenigen hundert Stunden im Jahr.",
+    "see_also": [
+      "Spitzenlast",
+      "Wirkungsgrad"
+    ]
+  },
+  {
+    "term": "Grenzkosten",
+    "group": "Markt",
+    "definition": "Die Kosten für die Erzeugung einer zusätzlichen Megawattstunde: Brennstoff geteilt durch Wirkungsgrad, plus CO₂-Kosten, plus variable Betriebskosten. Fixkosten und Abschreibungen zählen nicht dazu.",
+    "see_also": [
+      "Merit-Order",
+      "Wirkungsgrad"
+    ]
+  },
+  {
+    "term": "Grundlast",
+    "group": "System",
+    "definition": "Der Sockel des Verbrauchs, der rund um die Uhr anliegt. Mit wachsendem Anteil fluktuierender Erzeugung verliert der Begriff als Kraftwerkskategorie an Bedeutung — entscheidend ist heute Flexibilität.",
+    "see_also": [
+      "Residuallast",
+      "Spitzenlast"
+    ]
+  },
+  {
+    "term": "Kapazitätsfaktor",
+    "group": "Erneuerbare",
+    "definition": "Verhältnis der tatsächlich erzeugten Energie zur Energie bei durchgehender Volllast. Wind onshore liegt in Deutschland bei rund 20–25 %, offshore bei 40 %, Photovoltaik bei etwa 11 %.",
+    "see_also": [
+      "Volllaststunden",
+      "Dunkelflaute"
+    ]
+  },
+  {
+    "term": "Lastverschiebung",
+    "group": "Flexibilität",
+    "definition": "Verbrauch wird in Stunden mit niedrigen Preisen verlegt — Wärmepumpen, Elektroautos, industrielle Prozesse. Wirkt wie ein Speicher, ohne dass Energie zwischengespeichert wird.",
+    "see_also": [
+      "Speicher",
+      "Residuallast"
+    ]
+  },
+  {
+    "term": "Merit-Order",
+    "group": "Markt",
+    "definition": "Die Reihenfolge, in der Kraftwerke am Strommarkt zum Zug kommen — sortiert nach ihren Grenzkosten. Die Nachfrage wird von unten nach oben gedeckt; das teuerste noch benötigte Kraftwerk setzt den Preis.",
+    "see_also": [
+      "Grenzkosten",
+      "Einheitspreisverfahren"
+    ]
+  },
+  {
+    "term": "Momentanreserve",
+    "group": "System",
+    "definition": "Die in rotierenden Generatoren gespeicherte Bewegungsenergie, die Frequenzänderungen in den ersten Sekunden dämpft. Wechselrichter von Wind- und PV-Anlagen liefern sie nur, wenn sie dafür ausgelegt sind.",
+    "see_also": [
+      "Netzfrequenz",
+      "Regelleistung"
+    ]
+  },
+  {
+    "term": "Negative Preise",
+    "group": "Markt",
+    "definition": "Bei hoher erneuerbarer Einspeisung und geringer Last kann der Börsenpreis unter null fallen: Erzeuger zahlen dafür, einspeisen zu dürfen, weil Abschalten und Wiederanfahren teurer wäre.",
+    "see_also": [
+      "Abregelung",
+      "Spotmarkt"
+    ]
+  },
+  {
+    "term": "Netzengpass",
+    "group": "Netz",
+    "definition": "Eine Leitung kann den wirtschaftlich gewünschten Stromfluss nicht aufnehmen. In Deutschland vor allem der Nord-Süd-Transport von Windstrom zu den Verbrauchszentren im Süden.",
+    "see_also": [
+      "Redispatch",
+      "Übertragungsnetzbetreiber"
+    ]
+  },
+  {
+    "term": "Netzfrequenz",
+    "group": "System",
+    "definition": "Im europäischen Verbundnetz 50 Hertz. Sie sinkt, wenn mehr verbraucht als erzeugt wird, und steigt im umgekehrten Fall — der direkteste Indikator für das Gleichgewicht im System.",
+    "see_also": [
+      "Regelleistung",
+      "Momentanreserve"
+    ]
+  },
+  {
+    "term": "Redispatch",
+    "group": "Netz",
+    "definition": "Eingriff des Netzbetreibers in die Fahrweise von Kraftwerken, um Netzengpässe zu entlasten: vor dem Engpass drosseln, dahinter hochfahren. Die Kosten landen in den Netzentgelten.",
+    "see_also": [
+      "Netzengpass",
+      "Abregelung"
+    ]
+  },
+  {
+    "term": "Regelleistung",
+    "group": "System",
+    "definition": "Reserveleistung, die Abweichungen zwischen Prognose und Wirklichkeit ausgleicht und die Netzfrequenz bei 50 Hertz hält. Gestaffelt in Primär-, Sekundär- und Minutenreserve.",
+    "see_also": [
+      "Netzfrequenz",
+      "Übertragungsnetzbetreiber"
+    ]
+  },
+  {
+    "term": "Residuallast",
+    "group": "System",
+    "definition": "Last minus Einspeisung aus Wind und Photovoltaik — also der Teil des Verbrauchs, den steuerbare Kraftwerke, Speicher oder Importe decken müssen. Sie bestimmt den Preis.",
+    "see_also": [
+      "Merit-Order",
+      "Dunkelflaute"
+    ]
+  },
+  {
+    "term": "Speicher",
+    "group": "Flexibilität",
+    "definition": "Anlagen, die Strom zeitlich verschieben: Pumpspeicher und Batterien für Stunden, Wasserstoff und andere Power-to-X-Pfade für Wochen. Sie verdienen an der Preisdifferenz zwischen Laden und Entladen.",
+    "see_also": [
+      "Dunkelflaute",
+      "Lastverschiebung"
+    ]
+  },
+  {
+    "term": "Spitzenlast",
+    "group": "System",
+    "definition": "Die Stunden mit dem höchsten Verbrauch, in Deutschland typischerweise an Winterwerktagen zwischen 18 und 20 Uhr. Sie wird von schnell startbaren, teuren Anlagen gedeckt.",
+    "see_also": [
+      "Gasturbine",
+      "Residuallast"
+    ]
+  },
+  {
+    "term": "Spotmarkt",
+    "group": "Markt",
+    "definition": "Kurzfristiger Handelsplatz für Strom. Der Day-Ahead-Markt wird einmal täglich für alle 24 Stunden des Folgetages in einer Auktion geräumt, der Intraday-Markt läuft bis kurz vor Lieferung weiter.",
+    "see_also": [
+      "Einheitspreisverfahren",
+      "Negative Preise"
+    ]
+  },
+  {
+    "term": "Volllaststunden",
+    "group": "Erneuerbare",
+    "definition": "Kapazitätsfaktor mal 8760 Stunden. Eine PV-Anlage mit 1 000 Volllaststunden erzeugt pro installiertem Kilowatt rund 1 000 Kilowattstunden im Jahr.",
+    "see_also": [
+      "Kapazitätsfaktor"
+    ]
+  },
+  {
+    "term": "Wirkungsgrad",
+    "group": "Technik",
+    "definition": "Anteil der eingesetzten Brennstoffenergie, der als Strom herauskommt. Eine Gasturbine erreicht rund 38 %, eine Gas-und-Dampf-Kombianlage bis 60 % — das schlägt direkt auf die Grenzkosten durch.",
+    "see_also": [
+      "Grenzkosten",
+      "Emissionsfaktor"
+    ]
+  },
+  {
+    "term": "Übertragungsnetzbetreiber",
+    "group": "Netz",
+    "definition": "Betreiber des Höchstspannungsnetzes (220 und 380 kV). In Deutschland 50Hertz, Amprion, TenneT und TransnetBW; sie verantworten Systembilanz, Regelleistung und Redispatch.",
+    "see_also": [
+      "Regelleistung",
+      "Redispatch"
+    ]
+  }
+]

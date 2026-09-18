@@ -1,1 +1,7 @@
-website/backend/.venv
+# Python
+website/backend/.venv/
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store

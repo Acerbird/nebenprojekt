@@ -1,64 +1,137 @@
-<!-- frontend/templates/analysis.html -->
 {% extends "base.html" %}
+{% block description %}Merit-Order-Simulator: Zubau, CO₂-Preis und Gaspreis verändern und Börsenpreis, Erzeugungsmix und Emissionen berechnen.{% endblock %}
 {% block content %}
-<section>
-  <h2>Analysen</h2>
-  <p class="muted">Unten siehst du ein statisches Beispiel (Merit-Order) und ein interaktives Panel, das eine einfache Preis-Simulation aus dem Backend ausführt.</p>
+<div class="page-head">
+  <span class="eyebrow">Modell</span>
+  <h1>Analysen</h1>
+  <p class="lead">
+    Ein vereinfachter deutscher Kraftwerkspark, stündlich eingesetzt nach Grenzkosten.
+    Parameter ändern — Merit-Order, Erzeugungsmix und Preis rechnen sofort neu.
+  </p>
+</div>
 
-  <h3>Beispiel: Merit-Order (static / Plotly JSON)</h3>
-  <div id="merit-order" class="plot-box"></div>
-
-  <h3>Dynamische Simulation (Frontend → Backend)</h3>
-  <form id="sim-form">
-    <label>Windanteil (0–1): <input name="wind_share" type="number" step="0.01" value="0.25" min="0" max="1"></label>
-    <label>Solaranteil (0–1): <input name="solar_share" type="number" step="0.01" value="0.15" min="0" max="1"></label>
-    <label>Stunden: <input name="hours" type="number" value="48" min="1" max="168"></label>
-    <div style="margin-top:10px">
-      <button class="btn-primary" type="submit">Simulation starten</button>
-      <button class="btn-ghost-light" type="reset">Reset</button>
+<form class="controls" id="sim-form" aria-label="Parameter der Simulation">
+  <div class="controls-grid">
+    <div class="field">
+      <label for="wind_gw">Wind installiert</label>
+      <div class="range-row">
+        <input type="range" id="wind_gw" name="wind_gw" min="0" max="250" step="5" value="{{ defaults.wind_gw }}">
+        <span class="range-value" data-for="wind_gw" aria-hidden="true"></span>
+      </div>
+      <span class="hint">GW — heute rund 70</span>
     </div>
-  </form>
 
-  <div id="sim-result" class="plot-box" style="margin-top:18px;"></div>
+    <div class="field">
+      <label for="solar_gw">Photovoltaik installiert</label>
+      <div class="range-row">
+        <input type="range" id="solar_gw" name="solar_gw" min="0" max="350" step="5" value="{{ defaults.solar_gw }}">
+        <span class="range-value" data-for="solar_gw" aria-hidden="true"></span>
+      </div>
+      <span class="hint">GW — heute rund 90</span>
+    </div>
+
+    <div class="field">
+      <label for="co2_price">CO₂-Preis</label>
+      <div class="range-row">
+        <input type="range" id="co2_price" name="co2_price" min="0" max="250" step="5" value="{{ defaults.co2_price }}">
+        <span class="range-value" data-for="co2_price" aria-hidden="true"></span>
+      </div>
+      <span class="hint">€/t — dreht ab ~55 € Kohle und Gas um</span>
+    </div>
+
+    <div class="field">
+      <label for="gas_price">Gaspreis</label>
+      <div class="range-row">
+        <input type="range" id="gas_price" name="gas_price" min="5" max="150" step="1" value="{{ defaults.gas_price }}">
+        <span class="range-value" data-for="gas_price" aria-hidden="true"></span>
+      </div>
+      <span class="hint">€/MWh thermisch — 2022 zeitweise über 200</span>
+    </div>
+
+    <div class="field">
+      <label for="peak_load_gw">Höchstlast</label>
+      <div class="range-row">
+        <input type="range" id="peak_load_gw" name="peak_load_gw" min="40" max="120" step="1" value="{{ defaults.peak_load_gw }}">
+        <span class="range-value" data-for="peak_load_gw" aria-hidden="true"></span>
+      </div>
+      <span class="hint">GW — heute rund 75</span>
+    </div>
+
+    <div class="field">
+      <label for="season">Jahreszeit</label>
+      <select id="season" name="season">
+        {% for key, cfg in seasons.items() %}
+        <option value="{{ key }}"{% if key == defaults.season %} selected{% endif %}>{{ cfg.label }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">bestimmt Sonnenstand, Windniveau und Last</span>
+    </div>
+
+    <div class="field">
+      <label for="hours">Zeitraum</label>
+      <select id="hours" name="hours">
+        <option value="24">1 Tag</option>
+        <option value="72" selected>3 Tage</option>
+        <option value="168">1 Woche</option>
+        <option value="336">2 Wochen</option>
+      </select>
+      <span class="hint">Stunden ab Montag 00:00</span>
+    </div>
+  </div>
+
+  <div class="controls-actions">
+    <button class="btn btn-primary" type="submit">Neu berechnen</button>
+    <button class="btn btn-secondary" type="reset">Zurücksetzen</button>
+    <span class="status" id="sim-status" role="status">Berechne ...</span>
+  </div>
+</form>
+
+<div class="kpi-row" id="kpi-row"></div>
+
+<figure class="chart" id="chart-merit">
+  <figcaption class="chart-head">
+    <div class="chart-title">Merit-Order</div>
+    <div class="chart-sub" id="merit-note">Kraftwerksblöcke nach Grenzkosten sortiert.</div>
+  </figcaption>
+</figure>
+
+<figure class="chart" id="chart-generation">
+  <figcaption class="chart-head">
+    <div class="chart-title">Erzeugung nach Technologie</div>
+    <div class="chart-sub">Die Oberkante entspricht der Last, weil der Einsatz sie genau deckt. Die Bänder sind nach Technologie sortiert, nicht nach Einsatzreihenfolge.</div>
+  </figcaption>
+</figure>
+
+<figure class="chart" id="chart-price">
+  <figcaption class="chart-head">
+    <div class="chart-title">Börsenpreis</div>
+    <div class="chart-sub">Grenzkosten des jeweils letzten benötigten Blocks; negativ, wenn abgeregelt werden muss.</div>
+  </figcaption>
+</figure>
+
+<section class="prose">
+  <h2>Was das Modell rechnet — und was nicht</h2>
+  <p>
+    Die Grenzkosten je Block entstehen aus Brennstoffpreis geteilt durch Wirkungsgrad, den
+    CO₂-Kosten (Emissionsfaktor mal Zertifikatspreis, ebenfalls durch den Wirkungsgrad) und
+    variablen Betriebskosten. Danach wird die Last Stunde für Stunde von unten nach oben
+    gedeckt; der Preis ist der des letzten eingesetzten Blocks.
+  </p>
+  <p>
+    Nicht abgebildet sind Speicher, Import und Export, Mindestlasten, An- und Abfahrkosten,
+    Kraft-Wärme-Kopplung sowie Netzengpässe. Die Wetterprofile sind synthetisch, aber in
+    Niveau und Tagesgang an deutsche Verhältnisse angelehnt. Die Ergebnisse sind
+    Größenordnungen zum Verstehen der Mechanik — keine Prognose.
+  </p>
+  <p class="small muted">
+    Alle Werte stammen aus der eigenen API
+    (<a href="/docs">Dokumentation</a>): <code>/api/simulate</code> und
+    <code>/api/merit-order</code>. Das eingestellte Szenario steht in der Adresszeile und
+    lässt sich so weitergeben.
+  </p>
 </section>
+{% endblock %}
 
-<script>
-  // render merit-order with JSON from API
-  async function loadMeritOrder(){
-    const r = await fetch('/api/analysis/merit-order');
-    const data = await r.json();
-    // The backend returns a Plotly figure JSON; render it:
-    Plotly.react('merit-order', data['data'], data['layout']);
-  }
-  loadMeritOrder();
-
-  // simulation form submit
-  document.getElementById('sim-form').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const form = ev.target;
-    const fd = new FormData(form);
-    const params = new URLSearchParams();
-    for (const [k,v] of fd.entries()) params.append(k,v);
-
-    const res = await fetch('/api/analysis/run', {
-      method: 'POST',
-      body: params
-    });
-    const json = await res.json();
-    if (json.error){ alert(json.error); return; }
-
-    // build traces
-    const ts = json.timestamps;
-    const priceTrace = { x: ts, y: json.prices, mode: 'lines+markers', name: 'Preis (€/MWh)'};
-    const renTrace = { x: ts, y: json.renewable_fraction, mode: 'lines', name: 'Erneuerbarer Anteil', yaxis:'y2'};
-
-    const layout = {
-      title: 'Simulation: Preis & Erneuerbarer Anteil',
-      xaxis: {title:'Zeit'},
-      yaxis: {title:'Preis (€/MWh)'},
-      yaxis2: {title:'Erneuerbarer Anteil', overlaying:'y', side:'right', rangemode:'tozero'}
-    };
-    Plotly.react('sim-result', [priceTrace, renTrace], layout, {responsive:true});
-  });
-</script>
+{% block scripts %}
+<script src="/static/js/analysis.js" type="module"></script>
 {% endblock %}

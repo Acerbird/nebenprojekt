@@ -1,55 +1,246 @@
-# backend/analysis.py
-import numpy as np
-import pandas as pd
+"""Merit-Order und stündlicher Kraftwerkseinsatz.
+
+Das Modell ist bewusst klein gehalten, aber in der Struktur echt: Grenzkosten
+werden aus Brennstoffpreis, Wirkungsgrad und CO₂-Preis gerechnet, die Nachfrage
+wird Stunde für Stunde aus der billigsten verfügbaren Leistung gedeckt, und der
+Preis ist der des letzten benötigten Blocks (Einheitspreisverfahren).
+
+Nicht abgebildet: Speicher, Import/Export, Mindestlasten, An- und Abfahrkosten,
+Netzengpässe. Die Ergebnisse sind Größenordnungen, keine Prognose.
+"""
+
 import json
-import plotly.graph_objs as go
+import os
+from typing import Dict, List, Optional
 
-def generate_sample_prices(hours=48):
-    """Return a tiny sample series for templating examples."""
-    t = np.arange(hours)
-    base = 30 + 5*np.sin(t/6.0)
-    noise = np.random.normal(scale=3.0, size=hours)
-    prices = (base + noise).round(2).tolist()
-    timestamps = pd.date_range("2025-01-01", periods=hours, freq="H").astype(str).tolist()
-    return {"timestamps": timestamps, "prices": prices}
+from utils import profiles
 
-def run_simulation(hours=48, wind_share=0.25, solar_share=0.15):
+_DATA_PATH = os.path.join(os.path.dirname(__file__), "static_data", "power_plants.json")
+
+with open(_DATA_PATH, encoding="utf-8") as fh:
+    FLEET = json.load(fh)
+
+# Preis, zu dem die Nachfrage rechnerisch nicht mehr gedeckt werden kann.
+SCARCITY_PRICE = 400.0
+# Preis in Stunden, in denen erneuerbare Leistung abgeregelt werden muss.
+# Vereinfachung: ein fester negativer Wert statt einer Gebotskurve.
+SURPLUS_PRICE = -10.0
+
+DEFAULTS = {
+    "wind_gw": 70.0,
+    "solar_gw": 90.0,
+    "co2_price": 80.0,
+    "gas_price": 32.0,
+    "peak_load_gw": 75.0,
+    "hours": 72,
+    "season": profiles.DEFAULT_SEASON,
+}
+
+LIMITS = {
+    "wind_gw": (0.0, 300.0),
+    "solar_gw": (0.0, 400.0),
+    "co2_price": (0.0, 300.0),
+    "gas_price": (5.0, 200.0),
+    "peak_load_gw": (30.0, 150.0),
+    "hours": (24, 336),
+}
+
+
+def clamp(value: float, bounds) -> float:
+    low, high = bounds
+    return max(low, min(high, value))
+
+
+def normalise_params(**kwargs) -> Dict:
+    """Werte in gültige Bereiche zwingen, damit die API nie mit Müll rechnet."""
+    params = dict(DEFAULTS)
+    for key, value in kwargs.items():
+        if value is not None:
+            params[key] = value
+    for key, bounds in LIMITS.items():
+        params[key] = clamp(float(params[key]), bounds)
+    params["hours"] = int(params["hours"])
+    if params["season"] not in profiles.SEASONS:
+        params["season"] = profiles.DEFAULT_SEASON
+    return params
+
+
+def marginal_cost(plant: Dict, co2_price: float, gas_price: Optional[float] = None) -> float:
+    """Grenzkosten eines Blocks in €/MWh_el."""
+    if plant["kind"] == "must_run":
+        return float(plant["marginal_cost"])
+    fuel = FLEET["fuels"][plant["fuel"]]
+    price_th = fuel["price_eur_per_mwh_th"]
+    if plant["fuel"] == "erdgas" and gas_price is not None:
+        price_th = gas_price
+    eff = plant["efficiency"]
+    fuel_cost = price_th / eff
+    co2_cost = co2_price * fuel["emission_t_per_mwh_th"] / eff
+    return round(fuel_cost + co2_cost + plant["var_om"], 2)
+
+
+def emission_intensity(plant: Dict) -> float:
+    """CO₂-Ausstoß in t je MWh_el; erneuerbare Blöcke gelten als emissionsfrei."""
+    if plant["kind"] == "must_run":
+        return 0.0
+    return FLEET["fuels"][plant["fuel"]]["emission_t_per_mwh_th"] / plant["efficiency"]
+
+
+def merit_order(co2_price: float, gas_price: float,
+                wind_gw: float = 0.0, solar_gw: float = 0.0) -> List[Dict]:
+    """Alle Blöcke nach Grenzkosten sortiert.
+
+    Wind und PV stehen mit ihrer installierten Leistung und Grenzkosten von
+    praktisch null am Anfang — im stündlichen Einsatz ist davon nur der gerade
+    verfügbare Teil nutzbar.
     """
-    Simple toy-model:
-    - base price
-    - negative price effect when renewable share is high
-    - add diurnal solar pattern and stochastic noise for realism
-    Returns JSON friendly arrays.
-    """
-    rng = np.random.default_rng(42)
-    t = np.arange(hours)
-    # diurnal solar production (peak midday)
-    solar_profile = np.clip(np.sin((t - 6) / 24 * 2*np.pi), 0, None)
-    wind_profile = 0.5 + 0.5*np.sin(t/7.3)  # slower variation
+    blocks = [
+        {"id": "wind", "name": "Wind", "category": "wind", "kind": "variable",
+         "capacity_gw": wind_gw, "cost": 0.0, "emission": 0.0,
+         "note": "Keine Brennstoffkosten — speist ein, wann der Wind weht."},
+        {"id": "solar", "name": "Photovoltaik", "category": "solar", "kind": "variable",
+         "capacity_gw": solar_gw, "cost": 0.0, "emission": 0.0,
+         "note": "Keine Brennstoffkosten — speist tagsüber ein."},
+    ]
+    for plant in FLEET["plants"]:
+        blocks.append({
+            "id": plant["id"],
+            "name": plant["name"],
+            "category": plant["category"],
+            "kind": plant["kind"],
+            "capacity_gw": plant["capacity_gw"],
+            "cost": marginal_cost(plant, co2_price, gas_price),
+            "emission": round(emission_intensity(plant), 3),
+            "note": plant.get("note", ""),
+        })
+    blocks.sort(key=lambda b: b["cost"])
 
-    # Renewable supply fraction across time
-    ren_frac = wind_share * wind_profile + solar_share * solar_profile
-    ren_frac = np.clip(ren_frac, 0, 0.9)
+    cumulative = 0.0
+    for block in blocks:
+        block["from_gw"] = round(cumulative, 2)
+        cumulative += block["capacity_gw"]
+        block["to_gw"] = round(cumulative, 2)
+    return blocks
 
-    # base price curve
-    base = 40 + 8*np.sin(t/24*2*np.pi)  # daily pattern
-    # price reduction proportional to renewable fraction
-    price = base * (1 - 0.6 * ren_frac) + rng.normal(scale=2.5, size=hours)
-    price = np.round(price, 2)
 
-    timestamps = pd.date_range("2025-01-01", periods=hours, freq="H").astype(str).tolist()
-    return {"timestamps": timestamps,
-            "prices": price.tolist(),
-            "renewable_fraction": np.round(ren_frac, 3).tolist(),
-            "params": {"wind_share": wind_share, "solar_share": solar_share, "hours": hours}}
+def merit_order_payload(co2_price: Optional[float] = None, gas_price: Optional[float] = None,
+                        wind_gw: Optional[float] = None, solar_gw: Optional[float] = None) -> Dict:
+    params = normalise_params(co2_price=co2_price, gas_price=gas_price,
+                              wind_gw=wind_gw, solar_gw=solar_gw)
+    blocks = merit_order(params["co2_price"], params["gas_price"],
+                         params["wind_gw"], params["solar_gw"])
+    return {
+        "blocks": blocks,
+        "categories": FLEET["categories"],
+        "total_capacity_gw": round(blocks[-1]["to_gw"], 2) if blocks else 0.0,
+        "params": {k: params[k] for k in ("co2_price", "gas_price", "wind_gw", "solar_gw")},
+    }
 
-def generate_merit_order_figure_json():
-    """Generate a sample merit-order curve as JSON-like structure"""
-    # sample supply blocks
-    x = [0, 10, 30, 60, 90, 120, 160]
-    y = [5, 12, 25, 40, 60, 80, 120]  # price steps
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=y, mode="lines+markers", name="Merit Order"))
-    fig.update_layout(title="Beispiel: Merit-Order-Kurve", xaxis_title="Kumulierte Erzeugung (MW)", yaxis_title="Preis (€/MWh)")
-    # return the figure as JSON so the frontend can use Plotly to render it
-    return json.loads(fig.to_json())
+
+def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
+             co2_price: Optional[float] = None, gas_price: Optional[float] = None,
+             peak_load_gw: Optional[float] = None, hours: Optional[int] = None,
+             season: Optional[str] = None) -> Dict:
+    """Stündlicher Einsatz über den gewählten Zeitraum."""
+    params = normalise_params(wind_gw=wind_gw, solar_gw=solar_gw, co2_price=co2_price,
+                              gas_price=gas_price, peak_load_gw=peak_load_gw,
+                              hours=hours, season=season)
+    n = params["hours"]
+    season_key = params["season"]
+    cfg = profiles.season_config(season_key)
+
+    demand = profiles.load_series(n, params["peak_load_gw"], season_key)
+    wind_avail = profiles.wind_series(n, params["wind_gw"], season_key)
+    solar_avail = profiles.solar_series(n, params["solar_gw"], season_key)
+
+    blocks = merit_order(params["co2_price"], params["gas_price"],
+                         params["wind_gw"], params["solar_gw"])
+    categories = [c["id"] for c in FLEET["categories"]]
+
+    generation = {cat: [0.0] * n for cat in categories}
+    prices: List[float] = []
+    curtailed: List[float] = []
+    residual: List[float] = []
+
+    emissions_t = 0.0
+    curtailed_gwh = 0.0
+    surplus_hours = 0
+    scarcity_hours = 0
+
+    for h in range(n):
+        remaining = demand[h]
+        price = 0.0
+        available_ee = wind_avail[h] + solar_avail[h]
+        residual.append(round(demand[h] - available_ee, 3))
+
+        for block in blocks:
+            if block["id"] == "wind":
+                capacity = wind_avail[h]
+            elif block["id"] == "solar":
+                capacity = solar_avail[h]
+            elif block["category"] == "sonstige_ee":
+                capacity = block["capacity_gw"] * cfg["hydro_factor"] if block["id"] == "laufwasser" \
+                    else block["capacity_gw"]
+            else:
+                capacity = block["capacity_gw"]
+
+            if remaining <= 1e-9 or capacity <= 0:
+                continue
+            used = min(capacity, remaining)
+            generation[block["category"]][h] += used
+            remaining -= used
+            price = block["cost"]
+            emissions_t += used * 1000.0 * block["emission"]
+
+        if remaining > 1e-6:
+            price = SCARCITY_PRICE
+            scarcity_hours += 1
+
+        used_ee = generation["wind"][h] + generation["solar"][h]
+        spill = max(available_ee - used_ee, 0.0)
+        curtailed.append(round(spill, 3))
+        curtailed_gwh += spill
+        if spill > 0.01:
+            # Überschuss: Anlagen mit Einspeisevorrang drücken den Preis unter null,
+            # bis sich das Abregeln lohnt.
+            surplus_hours += 1
+            price = SURPLUS_PRICE
+
+        prices.append(round(price, 2))
+
+    generation = {cat: [round(v, 3) for v in series] for cat, series in generation.items()}
+    total_demand = sum(demand)
+    renewable_gen = sum(generation["wind"]) + sum(generation["solar"]) + sum(generation["sonstige_ee"])
+    price_weighted = sum(p * d for p, d in zip(prices, demand)) / total_demand if total_demand else 0.0
+
+    return {
+        "timestamps": profiles.timestamps(n, season_key),
+        "demand_gw": demand,
+        "residual_load_gw": residual,
+        "generation_gw": generation,
+        "curtailed_gw": curtailed,
+        "price_eur_mwh": prices,
+        "available_gw": {"wind": wind_avail, "solar": solar_avail},
+        "categories": FLEET["categories"],
+        "kpis": {
+            "mean_price": round(price_weighted, 2),
+            "min_price": min(prices) if prices else 0.0,
+            "max_price": max(prices) if prices else 0.0,
+            "renewable_share": round(100.0 * renewable_gen / total_demand, 1) if total_demand else 0.0,
+            "emissions_kt": round(emissions_t / 1000.0, 1),
+            "emission_intensity_g_kwh": round(emissions_t / total_demand, 0) if total_demand else 0.0,
+            "curtailed_gwh": round(curtailed_gwh, 1),
+            "surplus_hours": surplus_hours,
+            "negative_price_hours": sum(1 for p in prices if p < 0),
+            "scarcity_hours": scarcity_hours,
+            "demand_twh": round(total_demand / 1000.0, 2),
+        },
+        "params": params,
+        "season_label": cfg["label"],
+    }
+
+
+def glossary() -> List[Dict]:
+    path = os.path.join(os.path.dirname(__file__), "static_data", "glossary.json")
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)

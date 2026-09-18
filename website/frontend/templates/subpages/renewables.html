@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block description %}Wind, Photovoltaik, Dunkelflaute, Abregelung und Speicher — wie fluktuierende Erzeugung das Stromsystem verändert.{% endblock %}
+{% block content %}
+<div class="page-head">
+  <span class="eyebrow">Grundlagen</span>
+  <h1>Erneuerbare Energien</h1>
+  <p class="lead">
+    Wind und Sonne kosten im Betrieb fast nichts — dafür liefern sie nach Wetterlage.
+    Beides zusammen erklärt fast alles, was am Strommarkt gerade passiert.
+  </p>
+</div>
+
+<section class="prose">
+  <h2>Installierte Leistung ist nicht Erzeugung</h2>
+  <p>
+    Eine Photovoltaikanlage mit 1 Kilowatt Nennleistung liefert in Deutschland rund
+    1 000 Kilowattstunden im Jahr — das entspricht einem <strong>Kapazitätsfaktor</strong> von
+    etwa 11 %. Wind an Land kommt auf 20–25 %, auf See auf rund 40 %. Wer installierte Leistung
+    mit Kraftwerksleistung gleichsetzt, verrechnet sich also um den Faktor vier bis neun.
+  </p>
+  <p>
+    Der Tagesgang der Photovoltaik macht das anschaulich: Selbst im Sommer erreicht sie nur
+    für wenige Stunden die Hälfte ihrer Nennleistung, im Winter bleibt die Kurve flach — bei
+    kürzeren Tagen und flacherem Sonnenstand.
+  </p>
+</section>
+
+<figure class="chart" id="chart-solar-profile">
+  <figcaption class="chart-head">
+    <div class="chart-title">Kapazitätsfaktor der Photovoltaik</div>
+    <div class="chart-sub">Anteil der installierten Leistung über den Tag, je Jahreszeit</div>
+  </figcaption>
+</figure>
+
+<section class="prose">
+  <h2>Wind: träge, aber launisch</h2>
+  <p>
+    Windeinspeisung folgt Großwetterlagen und ändert sich über Stunden bis Tage — nicht
+    minütlich. Das ist gut für die Prognose und schlecht für die Statistik: Eine Flaute
+    betrifft selten eine Region allein, sondern häufig halb Europa gleichzeitig. Speicher,
+    die Stunden überbrücken, helfen dagegen nur begrenzt.
+  </p>
+  <p>
+    Der kritische Fall heißt <strong>Dunkelflaute</strong>: eine winterliche Hochdrucklage mit
+    wenig Wind und kaum Sonne, die mehrere Tage anhält. Sie trifft auf die höchste Last des
+    Jahres — deshalb bemisst sich die nötige gesicherte Leistung an ihr und nicht am Jahresmittel.
+  </p>
+
+  <h2>Zwei Grenzen des Zubaus</h2>
+  <p>
+    Je mehr Wind- und Solarleistung im System steht, desto häufiger übersteigt das Angebot die
+    Nachfrage. Dann passieren zwei Dinge gleichzeitig:
+  </p>
+  <ul>
+    <li>
+      <strong>Negative Preise.</strong> Anlagen mit Einspeisevorrang oder teurem Wiederanfahren
+      bieten unter null, statt abzuschalten. Der Preis fällt unter null, bis genug Erzeugung
+      freiwillig weicht.
+    </li>
+    <li>
+      <strong>Abregelung.</strong> Reicht auch das nicht, drosselt der Netzbetreiber Anlagen —
+      erzeugbarer Strom bleibt ungenutzt. Der Effekt wächst überproportional: Die letzten
+      zugebauten Gigawatt speisen genau dann ein, wenn das System ohnehin voll ist.
+    </li>
+  </ul>
+  <p>
+    Im <a href="/analysen">Simulator</a> lässt sich das nachvollziehen: Wer die Solarleistung im
+    Sommer verdoppelt, bekommt weit weniger als doppelt so viel nutzbaren Strom — dafür deutlich
+    mehr Stunden mit negativem Preis.
+  </p>
+
+  <div class="note">
+    <strong>Der Wert von Flexibilität</strong>
+    <p>
+      Was gegen beide Grenzen hilft, ist nicht mehr Erzeugung, sondern Verschiebung:
+      Batteriespeicher und Pumpspeicher für den Tagesausgleich, Wasserstoff für saisonale
+      Lücken, vor allem aber steuerbarer Verbrauch — Wärmepumpen, Elektroautos, industrielle
+      Prozesse. Jede verschobene Kilowattstunde ersetzt Abregelung <em>und</em> teure
+      Spitzenlast.
+    </p>
+  </div>
+
+  <h2>Was das Netz dazu sagt</h2>
+  <p>
+    Windstrom entsteht im Norden, verbraucht wird er im Süden und Westen. Solange die
+    Übertragungskapazität fehlt, wird im Norden abgeregelt und im Süden teurer nachproduziert —
+    die Kosten dafür landen über die Netzentgelte auf der Stromrechnung. Netzausbau,
+    Speicher und flexibler Verbrauch sind also keine konkurrierenden Lösungen, sondern
+    drei Hebel für dasselbe Problem.
+  </p>
+</section>
+
+<div class="cta-row">
+  <a class="btn btn-primary" href="/analysen">Szenarien durchrechnen</a>
+  <a class="btn btn-secondary" href="/glossar">Begriffe nachschlagen</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/explain.js" type="module"></script>
+{% endblock %}

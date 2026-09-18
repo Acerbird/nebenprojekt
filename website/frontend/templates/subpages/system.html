@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block description %}Last, Residuallast, Merit-Order und Einheitspreisverfahren — die Grundlagen des deutschen Stromsystems.{% endblock %}
+{% block content %}
+<div class="page-head">
+  <span class="eyebrow">Grundlagen</span>
+  <h1>Das Stromsystem</h1>
+  <p class="lead">
+    Erzeugung und Verbrauch müssen sich sekündlich ausgleichen. Wie das organisiert ist —
+    und wer am Ende den Preis setzt.
+  </p>
+</div>
+
+<section class="prose">
+  <h2>Die Last folgt dem Tag</h2>
+  <p>
+    Der Verbrauch schwankt in einem erstaunlich stabilen Muster: nachts ein Sockel von gut
+    60 % der Höchstlast, eine Morgenspitze, wenn Industrie und Haushalte hochfahren, ein
+    leichter Mittagsrückgang und die Jahresspitze an Winterabenden gegen 19 Uhr. Am Wochenende
+    fehlt der industrielle Anteil, die Kurve liegt rund 15 % tiefer.
+  </p>
+</section>
+
+<figure class="chart" id="chart-load-profile">
+  <figcaption class="chart-head">
+    <div class="chart-title">Tagesgang der Last</div>
+    <div class="chart-sub">Anteil der Jahreshöchstlast, Modellprofil für Deutschland</div>
+  </figcaption>
+</figure>
+
+<section class="prose">
+  <h2>Residuallast: der Teil, der übrig bleibt</h2>
+  <p>
+    Wind- und Solaranlagen speisen ein, wann das Wetter es zulässt — sie folgen nicht der
+    Nachfrage. Zieht man ihre Einspeisung von der Last ab, bleibt die <strong>Residuallast</strong>:
+    genau der Teil des Verbrauchs, den steuerbare Kraftwerke, Speicher oder Importe decken müssen.
+    Sie ist die eigentliche Größe, an der sich der Preis entscheidet.
+  </p>
+  <p>
+    Mit wachsendem Zubau wird die Residuallast nicht nur kleiner, sondern vor allem
+    <em>volatiler</em>: An sonnigen Sommermittagen kann sie gegen null gehen oder negativ werden,
+    in einer winterlichen Dunkelflaute liegt sie fast so hoch wie die Last selbst. Das System
+    braucht deshalb weniger Energie aus konventionellen Kraftwerken, aber weiterhin deren Leistung.
+  </p>
+
+  <h2>Merit-Order und Einheitspreis</h2>
+  <p>
+    Am Day-Ahead-Markt bieten die Kraftwerke mit ihren <strong>Grenzkosten</strong>: Brennstoff
+    geteilt durch Wirkungsgrad, plus CO₂-Kosten, plus variable Betriebskosten. Fixkosten spielen
+    keine Rolle — sie fallen ohnehin an. Die Gebote werden aufsteigend sortiert, das ist die
+    Merit-Order. Die Nachfrage wird von links nach rechts gedeckt; das letzte benötigte Kraftwerk
+    ist das <strong>preissetzende</strong>.
+  </p>
+  <p>
+    Entscheidend: Alle bezuschlagten Kraftwerke bekommen denselben Preis, nicht ihr eigenes Gebot
+    (<strong>Einheitspreisverfahren</strong>). Das wirkt zunächst seltsam, ist aber der Grund,
+    warum es sich lohnt, ehrlich zu bieten — und warum günstige Anlagen überhaupt Geld für ihre
+    Fixkosten verdienen. Die Differenz zwischen Marktpreis und eigenen Grenzkosten ist ihr
+    Deckungsbeitrag.
+  </p>
+
+  <div class="note">
+    <strong>Warum der CO₂-Preis die Reihenfolge umdreht</strong>
+    <p>
+      Braunkohle hat den billigsten Brennstoff, stößt aber je Megawattstunde etwa doppelt so
+      viel CO₂ aus wie ein modernes Gaskraftwerk. Steigt der Zertifikatspreis, verteuert er die
+      Kohle stärker — ab einem gewissen Punkt rutscht Gas in der Merit-Order an ihr vorbei.
+      Dieser <strong>Brennstoffwechsel</strong> ist der schnellste Hebel des Emissionshandels;
+      im <a href="/analysen">Simulator</a> lässt er sich am CO₂-Preis direkt beobachten.
+    </p>
+  </div>
+
+  <h2>Wenn der Markt nicht reicht: Netz und Regelleistung</h2>
+  <p>
+    Der Markt kennt keine Leitungen. Er räumt für ganz Deutschland eine einzige Preiszone, als
+    wäre das Netz unbegrenzt. In der Realität stößt vor allem der Nord-Süd-Transport von Windstrom
+    an Grenzen. Die Übertragungsnetzbetreiber korrigieren das per <strong>Redispatch</strong>:
+    vor dem Engpass drosseln, dahinter hochfahren.
+  </p>
+  <p>
+    Und weil Prognosen nie exakt aufgehen, halten sie <strong>Regelleistung</strong> vor —
+    gestaffelt von der Primärreserve, die in Sekunden greift, bis zur Minutenreserve. Sie hält die
+    Netzfrequenz bei 50 Hertz; sinkt sie, wird gerade mehr verbraucht als erzeugt.
+  </p>
+</section>
+
+<div class="cta-row">
+  <a class="btn btn-primary" href="/analysen">Merit-Order ausprobieren</a>
+  <a class="btn btn-secondary" href="/erneuerbare">Weiter zu den Erneuerbaren</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/explain.js" type="module"></script>
+{% endblock %}
