@@ -1,0 +1,5 @@
+# Nur für die Tests der HTTP-Schicht. Die Anwendung selbst braucht das nicht —
+# Laufzeitabhängigkeiten stehen in requirements.txt.
+# FastAPIs TestClient setzt httpx voraus.
+-r requirements.txt
+httpx>=0.27

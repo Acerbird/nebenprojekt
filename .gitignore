@@ -5,3 +5,10 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Lokal abgerufene Messwerte — werden per ingest.py geholt, nicht versioniert.
+website/backend/data_store/
+
+# Nur für die Frontend-Tests installiert (jsdom).
+website/node_modules/
+website/tests/frontend/analysis-page.html

@@ -1,22 +1,26 @@
-/* Analyseseite: Parameter -> Backend -> Merit-Order, Erzeugung, Preis. */
+/* Analyseseite: Parameter -> Backend -> Merit-Order, Erzeugung, Preis.
+ *
+ * Diese Datei verdrahtet nur. Die Logik — welche Parameter gesendet werden,
+ * welche Felder zur Quelle gehören, was in der Herkunftszeile steht — liegt in
+ * scenario.js und wird dort getestet.
+ */
 
-import { renderChart, fmt, formatHour } from "./charts.js";
+import { renderChart, fmt, formatHour, DEFAULT_TIMEZONE } from "./charts.js";
+import {
+  MissingData, applySourceVisibility, buildDataNote, buildStatusText,
+  formatDate, hoursHintText, readParams, restoreFromUrl, sourceHintText,
+} from "./scenario.js";
 
 const form = document.getElementById("sim-form");
 const statusLine = document.getElementById("sim-status");
 const kpiRow = document.getElementById("kpi-row");
+const dataNote = document.getElementById("data-note");
+const sourceHint = document.getElementById("source-hint");
 
 /** Kategorien tragen ihre Farbe als CSS-Variable — so folgt sie dem Farbschema. */
 const categoryColor = (id) => `var(--s-${id})`;
 
-const PARAM_KEYS = ["wind_gw", "solar_gw", "co2_price", "gas_price", "peak_load_gw", "hours", "season"];
-
-function readParams() {
-  const data = new FormData(form);
-  const params = {};
-  for (const key of PARAM_KEYS) params[key] = data.get(key);
-  return params;
-}
+const currentSource = () => form.elements.source.value;
 
 /** Bereichsregler zeigen ihren Wert daneben an. */
 function bindRangeOutputs() {
@@ -32,6 +36,44 @@ function bindRangeOutputs() {
     input.addEventListener("input", sync);
     sync();
   });
+}
+
+/** Felder der gewählten Datengrundlage anzeigen und die Hinweise nachziehen. */
+function syncSourceFields() {
+  const source = currentSource();
+  applySourceVisibility(form, source);
+  sourceHint.textContent = sourceHintText(source);
+  document.getElementById("hours-hint").textContent = hoursHintText(source);
+}
+
+/** Grenzen des Datumsfelds aus dem vorliegenden Bestand setzen. */
+async function prepareDataRange() {
+  try {
+    const status = await fetch("/api/data/status").then((r) => r.json());
+    const option = form.querySelector('#source option[value="historical"]');
+    if (!status.available) {
+      option.disabled = true;
+      option.textContent = "Echte Messwerte — noch nicht abgerufen";
+      return;
+    }
+    const first = status.range.first.slice(0, 10);
+    const last = status.range.last.slice(0, 10);
+    const field = form.elements.start;
+    field.min = first;
+    field.max = last;
+    if (!field.value) field.value = last;
+    document.getElementById("start-hint").textContent =
+      `verfügbar ${formatDate(first)} bis ${formatDate(last)}`;
+  } catch (error) {
+    console.error("Datenbestand nicht abrufbar", error);
+  }
+}
+
+/** Herkunft der Zahlen sichtbar machen — und jede Anpassung des Zeitraums. */
+function renderDataNote(result) {
+  const text = buildDataNote(result);
+  dataNote.textContent = text;
+  dataNote.hidden = text === "";
 }
 
 function kpiTile(label, value, unit, hint) {
@@ -78,6 +120,7 @@ function renderMeritOrder(payload, meanResidual) {
 }
 
 function renderGeneration(result) {
+  const tz = result.display_timezone || DEFAULT_TIMEZONE;
   const order = ["wind", "solar", "sonstige_ee", "braunkohle", "steinkohle", "erdgas"];
   const labels = Object.fromEntries(result.categories.map((c) => [c.id, c.label]));
   renderChart(document.getElementById("chart-generation"), {
@@ -87,7 +130,7 @@ function renderGeneration(result) {
     series: order
       .filter((id) => result.generation_gw[id].some((v) => v > 0.01))
       .map((id) => ({ id, label: labels[id], color: categoryColor(id), values: result.generation_gw[id] })),
-    formatX: formatHour,
+    formatX: (iso) => formatHour(iso, tz),
     formatY: (v) => fmt.plain(v, 0),
     formatValue: (v) => fmt.gw(v),
     xLabel: "Zeit",
@@ -104,6 +147,7 @@ function renderGeneration(result) {
 }
 
 function renderPrice(result) {
+  const tz = result.display_timezone || DEFAULT_TIMEZONE;
   renderChart(document.getElementById("chart-price"), {
     type: "line",
     title: "Börsenpreis",
@@ -112,7 +156,7 @@ function renderPrice(result) {
       id: "price", label: "Börsenpreis", color: "var(--accent)",
       values: result.price_eur_mwh, fill: true,
     }],
-    formatX: formatHour,
+    formatX: (iso) => formatHour(iso, tz),
     formatY: (v) => fmt.plain(v, 0),
     formatValue: (v) => fmt.eur(v),
     xLabel: "Zeit",
@@ -128,17 +172,23 @@ function setBusy(busy) {
 }
 
 async function run() {
-  const params = readParams();
+  const params = readParams(form);
   const query = new URLSearchParams(params).toString();
   statusLine.dataset.state = "";
   statusLine.textContent = "Berechne ...";
   setBusy(true);
 
   try {
-    const [simulation, merit] = await Promise.all([
-      fetch(`/api/simulate?${query}`).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-      fetch(`/api/merit-order?${query}`).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-    ]);
+    const simulationResponse = await fetch(`/api/simulate?${query}`);
+    const simulation = await simulationResponse.json();
+    if (simulationResponse.status === 409) {
+      // Fehlende Messwerte sind kein Programmfehler, sondern ein Betriebszustand.
+      throw new MissingData(simulation.detail, simulation.hint);
+    }
+    if (!simulationResponse.ok) throw new Error(simulationResponse.status);
+
+    const merit = await fetch(`/api/merit-order?${query}`)
+      .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
     const meanResidual = simulation.residual_load_gw.reduce((a, b) => a + Math.max(b, 0), 0) /
       simulation.residual_load_gw.length;
@@ -147,28 +197,20 @@ async function run() {
     renderMeritOrder(merit, meanResidual);
     renderGeneration(simulation);
     renderPrice(simulation);
+    renderDataNote(simulation);
 
-    statusLine.textContent =
-      `${simulation.params.hours} Stunden, ${simulation.season_label} — ${fmt.plain(simulation.kpis.demand_twh, 2)} TWh Verbrauch.`;
+    statusLine.textContent = buildStatusText(simulation);
 
     // Szenario in der Adresszeile ablegen, damit es teilbar und neu ladbar ist.
     history.replaceState(null, "", `?${query}`);
   } catch (error) {
     statusLine.dataset.state = "error";
-    statusLine.textContent = "Die Simulation konnte nicht geladen werden. Läuft das Backend?";
-    console.error(error);
+    statusLine.textContent = error instanceof MissingData
+      ? `${error.message} ${error.hint}`
+      : "Die Simulation konnte nicht geladen werden. Läuft das Backend?";
+    if (!(error instanceof MissingData)) console.error(error);
   } finally {
     setBusy(false);
-  }
-}
-
-/** Parameter aus der Adresszeile ins Formular zurückschreiben. */
-function restoreFromUrl() {
-  const query = new URLSearchParams(location.search);
-  for (const key of PARAM_KEYS) {
-    const value = query.get(key);
-    const field = form.elements[key];
-    if (value !== null && field) field.value = value;
   }
 }
 
@@ -180,6 +222,9 @@ form.addEventListener("input", () => {
 form.addEventListener("submit", (event) => { event.preventDefault(); run(); });
 form.addEventListener("reset", () => { setTimeout(() => { bindRangeOutputs(); run(); }, 0); });
 
-restoreFromUrl();
+form.elements.source.addEventListener("change", syncSourceFields);
+
+restoreFromUrl(form, location.search);
+syncSourceFields();
 bindRangeOutputs();
-run();
+prepareDataRange().then(run);

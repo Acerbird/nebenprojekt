@@ -11,9 +11,11 @@ Netzengpässe. Die Ergebnisse sind Größenordnungen, keine Prognose.
 
 import json
 import os
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from utils import profiles
+from .data import sources
+from .utils import profiles
 
 _DATA_PATH = os.path.join(os.path.dirname(__file__), "static_data", "power_plants.json")
 
@@ -34,6 +36,8 @@ DEFAULTS = {
     "peak_load_gw": 75.0,
     "hours": 72,
     "season": profiles.DEFAULT_SEASON,
+    "source": sources.SYNTHETIC,
+    "start": None,
 }
 
 LIMITS = {
@@ -62,7 +66,62 @@ def normalise_params(**kwargs) -> Dict:
     params["hours"] = int(params["hours"])
     if params["season"] not in profiles.SEASONS:
         params["season"] = profiles.DEFAULT_SEASON
+    if params["source"] not in (sources.SYNTHETIC, sources.HISTORICAL):
+        params["source"] = sources.SYNTHETIC
+    if params["source"] == sources.HISTORICAL:
+        window = resolve_window(params)
+        params["start_ts"] = window["start_ts"]
+        params["hours"] = window["hours"]
+        params["adjustments"] = window["adjustments"]
+    else:
+        params["start_ts"] = None
     return params
+
+
+def resolve_window(params: Dict) -> Dict:
+    """Start und Dauer für echte Messwerte festlegen.
+
+    Ohne Startdatum wird der jüngste vorliegende Zeitraum genommen, damit die
+    Seite ohne Zutun die aktuelle Lage zeigt.
+
+    Liegt der Wunsch außerhalb des Bestands, wird er in den Bestand geschoben
+    beziehungsweise gekürzt — aber nie stillschweigend: Jede Anpassung steht
+    anschließend im Ergebnis. Wer Januar 2019 anfragt und Juli 2026 bekommt,
+    muss das sehen können.
+    """
+    available = sources.available_range()
+    if available is None:
+        raise sources.InsufficientData(
+            "Noch keine Messwerte vorhanden. Abrufen mit: "
+            "python -m backend.data.ingest --weeks 52")
+
+    requested_hours = params["hours"]
+    if params.get("start"):
+        try:
+            moment = datetime.strptime(str(params["start"])[:10], "%Y-%m-%d")
+        except ValueError:
+            raise sources.InsufficientData(
+                "Startdatum nicht lesbar: %r — erwartet wird JJJJ-MM-TT." % params["start"])
+        requested_start = int(moment.replace(tzinfo=timezone.utc).timestamp())
+    else:
+        requested_start = available["last_ts"] - (requested_hours - 1) * 3600
+
+    start_ts = min(max(requested_start, available["first_ts"]), available["last_ts"])
+    # Nicht über den letzten Messwert hinaus rechnen: Sonst würden fehlende
+    # Stunden mit dem letzten bekannten Wert gefüllt und sähen aus wie Messung.
+    possible_hours = int((available["last_ts"] - start_ts) // 3600) + 1
+    hours = max(1, min(requested_hours, possible_hours))
+
+    notes = {}
+    if start_ts != requested_start:
+        notes["start_shifted_to"] = datetime.fromtimestamp(
+            start_ts, timezone.utc).strftime("%Y-%m-%d")
+        notes["reason"] = "Der gewünschte Zeitraum liegt außerhalb der vorliegenden Messwerte."
+    if hours != requested_hours:
+        notes["hours_shortened_to"] = hours
+        notes.setdefault("reason", "Bis zum Ende der Messwerte reichen nur %d Stunden." % hours)
+
+    return {"start_ts": start_ts, "hours": hours, "adjustments": notes}
 
 
 def marginal_cost(plant: Dict, co2_price: float, gas_price: Optional[float] = None) -> float:
@@ -137,21 +196,46 @@ def merit_order_payload(co2_price: Optional[float] = None, gas_price: Optional[f
     }
 
 
+def resolve_series(params: Dict, scale_to_peak: bool = True):
+    """Zeitreihen der gewählten Quelle besorgen.
+
+    Bei erzeugten Profilen bestimmt der Höchstlast-Regler die Nachfrage. Bei
+    echten Messwerten gilt zunächst die tatsächliche Last; nur wenn ausdrücklich
+    eine Höchstlast verlangt wird, wird die echte Kurve darauf gestreckt — damit
+    lässt sich fragen, was zusätzlicher Verbrauch angerichtet hätte.
+    """
+    if params["source"] == sources.HISTORICAL:
+        series = sources.historical_series(params["start_ts"], params["hours"])
+        if scale_to_peak:
+            series = sources.scale_load(series, params["peak_load_gw"])
+        return series
+    return sources.synthetic_series(params["hours"], params["peak_load_gw"],
+                                    params["season"])
+
+
 def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
              co2_price: Optional[float] = None, gas_price: Optional[float] = None,
              peak_load_gw: Optional[float] = None, hours: Optional[int] = None,
-             season: Optional[str] = None) -> Dict:
+             season: Optional[str] = None, source: Optional[str] = None,
+             start: Optional[str] = None) -> Dict:
     """Stündlicher Einsatz über den gewählten Zeitraum."""
+    # Ob der Höchstlast-Regler angefasst wurde, muss vor dem Auffüllen mit
+    # Standardwerten feststehen — sonst wäre bei echten Daten nicht mehr
+    # erkennbar, ob die Last gestreckt werden soll.
+    scale_to_peak = peak_load_gw is not None
     params = normalise_params(wind_gw=wind_gw, solar_gw=solar_gw, co2_price=co2_price,
                               gas_price=gas_price, peak_load_gw=peak_load_gw,
-                              hours=hours, season=season)
+                              hours=hours, season=season, source=source, start=start)
     n = params["hours"]
-    season_key = params["season"]
-    cfg = profiles.season_config(season_key)
 
-    demand = profiles.load_series(n, params["peak_load_gw"], season_key)
-    wind_avail = profiles.wind_series(n, params["wind_gw"], season_key)
-    solar_avail = profiles.solar_series(n, params["solar_gw"], season_key)
+    # Die Zeitreihen kommen aus einer austauschbaren Quelle. Ab hier ist
+    # gleichgültig, ob sie erzeugt oder aus echten Messwerten gelesen wurden.
+    series = resolve_series(params, scale_to_peak)
+    n = series.hours
+    params["hours"] = n
+    demand = series.load_gw
+    wind_avail = series.wind_gw(params["wind_gw"])
+    solar_avail = series.solar_gw(params["solar_gw"])
 
     blocks = merit_order(params["co2_price"], params["gas_price"],
                          params["wind_gw"], params["solar_gw"])
@@ -179,7 +263,7 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
             elif block["id"] == "solar":
                 capacity = solar_avail[h]
             elif block["category"] == "sonstige_ee":
-                capacity = block["capacity_gw"] * cfg["hydro_factor"] if block["id"] == "laufwasser" \
+                capacity = block["capacity_gw"] * series.hydro_factor if block["id"] == "laufwasser" \
                     else block["capacity_gw"]
             else:
                 capacity = block["capacity_gw"]
@@ -214,7 +298,7 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     price_weighted = sum(p * d for p, d in zip(prices, demand)) / total_demand if total_demand else 0.0
 
     return {
-        "timestamps": profiles.timestamps(n, season_key),
+        "timestamps": series.timestamps,
         "demand_gw": demand,
         "residual_load_gw": residual,
         "generation_gw": generation,
@@ -236,7 +320,11 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
             "demand_twh": round(total_demand / 1000.0, 2),
         },
         "params": params,
-        "season_label": cfg["label"],
+        "season_label": series.label,
+        "source": series.source,
+        "series_meta": series.meta,
+        # Zeitstempel oben sind UTC — hierin gehören sie angezeigt.
+        "display_timezone": series.display_timezone,
     }
 
 

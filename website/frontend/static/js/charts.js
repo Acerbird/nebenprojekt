@@ -18,17 +18,32 @@ export const fmt = {
   percent: (v) => numberFormat(0).format(v * 100) + " %",
 };
 
-const WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+/* Zeitstempel kommen vom Backend in UTC. Angezeigt werden sie in der Zeitzone
+ * der Region, nicht in der des Betrachters: Die Mittagsspitze der Photovoltaik
+ * gehört auf 13 Uhr, auch wenn jemand von Kalifornien aus zuschaut. Die Zone
+ * liefert das Backend als `display_timezone` mit. */
+export const DEFAULT_TIMEZONE = "Europe/Berlin";
 
-/** "Mo 14:00" — kompakt genug für eine Achse. */
-export function formatHour(iso) {
-  const d = new Date(iso);
-  return `${WEEKDAYS[d.getDay()]} ${String(d.getHours()).padStart(2, "0")}:00`;
+function timeParts(iso, timeZone, options) {
+  const formatter = new Intl.DateTimeFormat("de-DE", { timeZone, ...options });
+  const out = {};
+  for (const part of formatter.formatToParts(new Date(iso))) out[part.type] = part.value;
+  return out;
 }
 
-export function formatDay(iso) {
-  const d = new Date(iso);
-  return `${WEEKDAYS[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}.`;
+/** "Mo 14:00" — kompakt genug für eine Achse. */
+export function formatHour(iso, timeZone = DEFAULT_TIMEZONE) {
+  const p = timeParts(iso, timeZone, {
+    weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  });
+  return `${p.weekday.replace(".", "")} ${p.hour}:00`;
+}
+
+export function formatDay(iso, timeZone = DEFAULT_TIMEZONE) {
+  const p = timeParts(iso, timeZone, {
+    weekday: "short", day: "numeric", month: "numeric",
+  });
+  return `${p.weekday.replace(".", "")} ${p.day}.${p.month}.`;
 }
 
 function el(name, attrs = {}, parent = null) {

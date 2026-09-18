@@ -7,11 +7,29 @@
   <p class="lead">
     Ein vereinfachter deutscher Kraftwerkspark, stündlich eingesetzt nach Grenzkosten.
     Parameter ändern — Merit-Order, Erzeugungsmix und Preis rechnen sofort neu.
+    Wahlweise auf erzeugten Profilen oder auf echten Messwerten von SMARD: Dann liegt
+    das tatsächliche Wetter zugrunde, und der Zubau lässt sich frei durchspielen.
   </p>
+  <p class="data-note" id="data-note" hidden></p>
 </div>
 
 <form class="controls" id="sim-form" aria-label="Parameter der Simulation">
   <div class="controls-grid">
+    <div class="field">
+      <label for="source">Datengrundlage</label>
+      <select id="source" name="source">
+        <option value="synthetic" selected>Erzeugte Profile</option>
+        <option value="historical">Echte Messwerte (SMARD)</option>
+      </select>
+      <span class="hint" id="source-hint">nachgebildete Tagesgänge, jederzeit verfügbar</span>
+    </div>
+
+    <div class="field" data-when="historical" hidden>
+      <label for="start">Beginn</label>
+      <input type="date" id="start" name="start">
+      <span class="hint" id="start-hint">Tag, an dem der Zeitraum beginnt</span>
+    </div>
+
     <div class="field">
       <label for="wind_gw">Wind installiert</label>
       <div class="range-row">
@@ -36,7 +54,7 @@
         <input type="range" id="co2_price" name="co2_price" min="0" max="250" step="5" value="{{ defaults.co2_price }}">
         <span class="range-value" data-for="co2_price" aria-hidden="true"></span>
       </div>
-      <span class="hint">€/t — dreht ab ~55 € Kohle und Gas um</span>
+      <span class="hint">€/t — ab ~53 € verdrängt Gas die Steinkohle, ab ~62 € die Braunkohle</span>
     </div>
 
     <div class="field">
@@ -54,10 +72,14 @@
         <input type="range" id="peak_load_gw" name="peak_load_gw" min="40" max="120" step="1" value="{{ defaults.peak_load_gw }}">
         <span class="range-value" data-for="peak_load_gw" aria-hidden="true"></span>
       </div>
-      <span class="hint">GW — heute rund 75</span>
+      <span class="hint" id="peak-hint">GW — heute rund 75</span>
+      <label class="check" data-when="historical" hidden>
+        <input type="checkbox" id="scale_load" name="scale_load">
+        gemessene Last auf diesen Wert strecken
+      </label>
     </div>
 
-    <div class="field">
+    <div class="field" data-when="synthetic">
       <label for="season">Jahreszeit</label>
       <select id="season" name="season">
         {% for key, cfg in seasons.items() %}
@@ -75,7 +97,7 @@
         <option value="168">1 Woche</option>
         <option value="336">2 Wochen</option>
       </select>
-      <span class="hint">Stunden ab Montag 00:00</span>
+      <span class="hint" id="hours-hint">Stunden ab Montag 00:00</span>
     </div>
   </div>
 
@@ -122,6 +144,14 @@
     Kraft-Wärme-Kopplung sowie Netzengpässe. Die Wetterprofile sind synthetisch, aber in
     Niveau und Tagesgang an deutsche Verhältnisse angelehnt. Die Ergebnisse sind
     Größenordnungen zum Verstehen der Mechanik — keine Prognose.
+  </p>
+  <p>
+    Bei <strong>echten Messwerten</strong> stammen Last, Wind- und Solareinspeisung von
+    SMARD (Bundesnetzagentur). Aus Einspeisung und installierter Leistung wird ein
+    Kapazitätsfaktor gebildet — deshalb lässt sich dasselbe Wetter auf einen beliebigen
+    Ausbaustand umrechnen. Der Kraftwerkspark auf der Erzeugungsseite bleibt dabei das
+    vereinfachte Modell; die Zahlen sind also kein Nachbau des tatsächlichen Marktes,
+    sondern zeigen, was das Modell aus echtem Wetter macht.
   </p>
   <p class="small muted">
     Alle Werte stammen aus der eigenen API

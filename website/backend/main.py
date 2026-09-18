@@ -4,6 +4,7 @@ Start (aus dem Ordner website/):  ./run.sh
 oder:                             uvicorn backend.main:app --reload
 """
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -12,8 +13,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-import analysis as anl
-from utils import profiles
+from . import analysis as anl, region
+from .data import smard, sources, store
+from .utils import profiles
 
 # Pfade hängen an der Position dieser Datei, nicht am Arbeitsverzeichnis —
 # so startet die App aus jedem Ordner heraus.
@@ -96,13 +98,54 @@ async def api_simulate(
     solar_gw: float = Query(anl.DEFAULTS["solar_gw"]),
     co2_price: float = Query(anl.DEFAULTS["co2_price"]),
     gas_price: float = Query(anl.DEFAULTS["gas_price"]),
-    peak_load_gw: float = Query(anl.DEFAULTS["peak_load_gw"]),
+    peak_load_gw: Optional[float] = Query(
+        None, description="Höchstlast in GW. Bei echten Daten wird die gemessene "
+                          "Lastkurve nur dann gestreckt, wenn dieser Wert gesetzt ist."),
     hours: int = Query(anl.DEFAULTS["hours"]),
-    season: str = Query(anl.DEFAULTS["season"]),
+    season: str = Query(anl.DEFAULTS["season"], description="nur bei source=synthetic"),
+    source: str = Query(anl.DEFAULTS["source"],
+                        description="synthetic = erzeugte Profile, historical = SMARD-Messwerte"),
+    start: Optional[str] = Query(None, description="Startdatum JJJJ-MM-TT, nur bei source=historical"),
 ):
     """Stündlicher Kraftwerkseinsatz, Börsenpreis und Kennzahlen."""
-    return JSONResponse(anl.simulate(wind_gw, solar_gw, co2_price, gas_price,
-                                     peak_load_gw, hours, season))
+    try:
+        return JSONResponse(anl.simulate(wind_gw, solar_gw, co2_price, gas_price,
+                                         peak_load_gw, hours, season, source, start))
+    except sources.InsufficientData as error:
+        # Lieber ein klarer Hinweis als stillschweigend erzeugte Profile —
+        # sonst hält man Modellzahlen für Messwerte.
+        return JSONResponse(status_code=409, content={
+            "error": "insufficient_data",
+            "detail": str(error),
+            "hint": "Messwerte holen mit: python -m backend.data.ingest --weeks 52",
+        })
+
+
+@app.get("/api/data/status")
+async def api_data_status():
+    """Welche Messwerte liegen lokal vor — für die Oberfläche und den Betrieb."""
+    available = sources.available_range()
+    settings = region.config()
+    payload = {
+        "available": available is not None,
+        "source": "SMARD.de, Bundesnetzagentur",
+        "region": settings["code"],
+        # Alle Zeitstempel sind UTC; diese Zone gilt nur für die Anzeige.
+        "display_timezone": settings["timezone"],
+        "database_mb": round(store.database_size_bytes() / (1024 * 1024), 2),
+        "series": {name: smard.describe(name) for name in smard.CORE_SERIES},
+    }
+    if available:
+        payload["range"] = {
+            "first_ts": available["first_ts"],
+            "last_ts": available["last_ts"],
+            "first": datetime.fromtimestamp(available["first_ts"], timezone.utc).isoformat(timespec="minutes"),
+            "last": datetime.fromtimestamp(available["last_ts"], timezone.utc).isoformat(timespec="minutes"),
+        }
+        payload["coverage"] = available["series"]
+    else:
+        payload["hint"] = "Noch keine Messwerte. Abrufen mit: python -m backend.data.ingest --weeks 52"
+    return JSONResponse(payload)
 
 
 @app.get("/api/profiles/day")

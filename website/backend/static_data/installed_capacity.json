@@ -1,0 +1,54 @@
+{
+  "_quelle": "Fraunhofer ISE, Energy-Charts (api.energy-charts.info/installed_power), Technologien 'Wind onshore', 'Wind offshore' und 'Solar DC'.",
+  "_abgerufen": "2026-09-18",
+  "_einheit": "GW",
+  "_hinweis": "Jahreswerte, gelesen als Stand zum Jahresende. Zwischen den Jahresenden wird linear interpoliert, weil Anlagen laufend zugebaut werden. Photovoltaik in DC-Modulleistung — das ist die Zahl, die in der öffentlichen Debatte genannt wird.",
+  "_pflege": "Einmal jährlich aktualisieren. Ohne passenden Jahreswert nimmt der Code den nächstgelegenen und vermerkt das im Ergebnis.",
+  "capacity_gw": {
+    "wind_offshore": {
+      "2014": 1.05,
+      "2015": 3.38,
+      "2016": 4.24,
+      "2017": 5.52,
+      "2018": 6.51,
+      "2019": 7.66,
+      "2020": 7.87,
+      "2021": 7.87,
+      "2022": 8.22,
+      "2023": 8.47,
+      "2024": 9.21,
+      "2025": 9.73,
+      "2026": 11.03
+    },
+    "wind_onshore": {
+      "2014": 37.62,
+      "2015": 41.3,
+      "2016": 45.28,
+      "2017": 50.17,
+      "2018": 52.33,
+      "2019": 53.19,
+      "2020": 54.41,
+      "2021": 56.05,
+      "2022": 58.01,
+      "2023": 61.01,
+      "2024": 63.59,
+      "2025": 68.18,
+      "2026": 71.08
+    },
+    "solar": {
+      "2014": 37.82,
+      "2015": 39.23,
+      "2016": 40.73,
+      "2017": 42.4,
+      "2018": 45.41,
+      "2019": 49.41,
+      "2020": 54.55,
+      "2021": 60.26,
+      "2022": 67.84,
+      "2023": 83.32,
+      "2024": 100.8,
+      "2025": 118.07,
+      "2026": 129.78
+    }
+  }
+}

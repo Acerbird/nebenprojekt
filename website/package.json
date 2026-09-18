@@ -1,0 +1,12 @@
+{
+  "name": "energiewende-frontend-tests",
+  "private": true,
+  "type": "module",
+  "description": "Nur für die Frontend-Tests. Die Website selbst braucht kein npm und lädt zur Laufzeit keine externe Bibliothek.",
+  "scripts": {
+    "test": "node --test tests/frontend/"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  }
+}

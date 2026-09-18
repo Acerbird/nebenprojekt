@@ -247,7 +247,29 @@ a.card .card-more { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
   display: grid; gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
+/* Ohne diese Regel würde die display-Angabe der Felder das hidden-Attribut
+   überstimmen und ausgeblendete Eingaben blieben sichtbar. */
+[hidden] { display: none !important; }
+
 .field { display: flex; flex-direction: column; gap: 5px; }
+
+/* Ankreuzfeld innerhalb eines Feldes, etwa zum Strecken der gemessenen Last. */
+.check {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; font-weight: 400; color: var(--ink-2);
+}
+.check input { margin: 0; flex: none; }
+
+/* Herkunftsangabe über den Diagrammen — bei echten Messwerten Pflicht. */
+.data-note {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2, rgba(127, 127, 127, 0.08));
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
 .field label { font-size: 0.85rem; font-weight: 600; }
 .field .hint { font-size: 0.75rem; color: var(--ink-muted); }
 .field input[type="number"], .field select {
