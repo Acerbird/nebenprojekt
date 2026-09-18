@@ -11,12 +11,16 @@ liegt nachts bei null, Biomasse läuft nahezu konstant durch, Kernenergie
 antwortet seit der Abschaltung mit 404, und die Summe der Erzeugungsarten
 trifft die ausgewiesene Gesamterzeugung.
 
+Für den Nettoexport (4629) ist die Energiebilanz nachgerechnet worden:
+Erzeugung minus Netzlast minus Nettoexport minus Pumpspeicherverbrauch bleibt
+im Mittel unter einem Gigawatt — der Rest sind Netzverluste und Eigenversorgung.
+Positive Werte bedeuten Export, negative Import.
+
 Quelle: SMARD.de, Bundesnetzagentur. Bei Weiterverwendung ist die Quelle zu
 nennen; vor einer kommerziellen Nutzung sind die Nutzungsbedingungen zu prüfen.
 """
 
 import json
-import socket
 import time
 import urllib.error
 import urllib.request
@@ -46,10 +50,12 @@ SERIES: Dict[str, Dict] = {
     "nuclear":            {"filter": 1224, "unit": "MW", "label": "Erzeugung: Kernenergie"},
     "other_conventional": {"filter": 1227, "unit": "MW", "label": "Erzeugung: Sonstige Konventionelle"},
     "other_renewable":    {"filter": 1228, "unit": "MW", "label": "Erzeugung: Sonstige Erneuerbare"},
+    "net_export":         {"filter": 4629, "unit": "MW", "label": "Kommerzieller Nettoexport"},
+    "pumped_load":        {"filter": 4387, "unit": "MW", "label": "Stromverbrauch: Pumpspeicher"},
 }
 
 # Was das Modell mindestens braucht. Der Rest ist für Vergleich und Validierung.
-CORE_SERIES = ("load", "wind_onshore", "wind_offshore", "solar", "price")
+CORE_SERIES = ("load", "wind_onshore", "wind_offshore", "solar", "price", "net_export")
 
 # Zeitreihen, aus denen die Merit-Order-Prüfung später den echten Mix nachbaut.
 GENERATION_SERIES = ("wind_onshore", "wind_offshore", "solar", "biomass", "hydro",
@@ -73,7 +79,13 @@ def _request(url: str) -> Optional[bytes]:
             if error.code == 404:
                 return None
             last_error = error
-        except (urllib.error.URLError, socket.timeout, ConnectionError) as error:
+        except OSError as error:
+            # Bewusst weit gefasst. In Python 3.9 ist `socket.timeout` nicht
+            # dasselbe wie `TimeoutError`: Läuft die Wartezeit im SSL-Lesen ab,
+            # kommt ein nacktes TimeoutError heraus, das eine engere Klausel
+            # durchlässt — der Abruf bricht dann mitten im Lauf ab, statt es
+            # noch einmal zu versuchen. Alle hier gemeinten Fehler (URLError,
+            # socket.timeout, ConnectionError, TimeoutError) sind OSError.
             last_error = error
         if attempt < RETRIES - 1:
             time.sleep(2 ** attempt)  # 1s, 2s — SMARD nicht bedrängen

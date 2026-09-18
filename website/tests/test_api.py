@@ -355,6 +355,56 @@ class SimulateHistoricalTest(DataEndpointTestCase):
         self.assertGreater(viel["kpis"]["renewable_share"], wenig["kpis"]["renewable_share"])
         self.assertLess(viel["kpis"]["emissions_kt"], wenig["kpis"]["emissions_kt"])
 
+    def test_ohne_preisangabe_gelten_die_marktpreise_des_monats(self):
+        """Der Durchstich, der beinahe schiefgegangen wäre: Solange die API die
+        Regler mit ihren Vorgabewerten füllt, sind sie von einer Eingabe nicht
+        zu unterscheiden — und die gemessenen Monatspreise kämen nie zum Zug."""
+        from backend.data import fuel_prices
+        if not fuel_prices.available():
+            self.skipTest("Keine Brennstofftabelle vorhanden")
+        data = self.json("/api/simulate?source=historical&start=2024-06-04&hours=24")
+        herkunft = [m["origin"] for m in data["fuel_costs"]["months"].values()]
+        self.assertIn("historical", herkunft)
+
+    def test_angegebener_preis_schlaegt_den_marktpreis(self):
+        data = self.json("/api/simulate?source=historical&start=2024-06-04&hours=24&co2_price=150")
+        monate = list(data["fuel_costs"]["months"].values())
+        self.assertTrue(monate)
+        self.assertEqual(monate[0]["co2_price"], 150.0)
+
+    def test_ohne_reglerangabe_gilt_der_tatsaechliche_ausbau(self):
+        """Derselbe Durchstich wie bei den Brennstoffpreisen: Füllt die API die
+        Regler mit ihren Vorgabewerten, ist das von einer Eingabe nicht zu
+        unterscheiden — und der echte Ausbaustand käme über die Website nie an."""
+        data = self.json("/api/simulate?source=historical&start=2024-06-04&hours=24")
+        self.assertEqual(data["params"]["capacity_source"], "historical")
+        echt = data["series_meta"]["installed_gw"]
+        self.assertAlmostEqual(data["params"]["solar_gw"], echt["solar"], places=1)
+        self.assertNotAlmostEqual(data["params"]["solar_gw"], anl.DEFAULTS["solar_gw"], places=0)
+
+    def test_angegebener_ausbau_schlaegt_den_tatsaechlichen(self):
+        data = self.json("/api/simulate?source=historical&start=2024-06-04&hours=24&wind_gw=140")
+        self.assertEqual(data["params"]["wind_gw"], 140.0)
+        echt = data["series_meta"]["installed_gw"]
+        self.assertAlmostEqual(data["params"]["solar_gw"], echt["solar"], places=1,
+                               msg="Ein gesetzter Regler darf den anderen nicht verdrängen")
+
+    def test_hoher_co2_preis_treibt_den_strompreis(self):
+        billig = self.json("/api/simulate?source=historical&start=2024-06-04&hours=48&co2_price=10")
+        teuer = self.json("/api/simulate?source=historical&start=2024-06-04&hours=48&co2_price=250")
+        self.assertGreater(teuer["kpis"]["mean_price"], billig["kpis"]["mean_price"])
+
+    def test_mindestlast_ist_abschaltbar_und_standardmaessig_aus(self):
+        aus = self.json("/api/simulate?source=historical&start=2024-06-04&hours=24")
+        an = self.json("/api/simulate?source=historical&start=2024-06-04&hours=24&min_load=true")
+        self.assertFalse(aus["params"]["min_load"])
+        self.assertTrue(an["params"]["min_load"])
+
+    def test_aussenhandel_wird_ausgewiesen(self):
+        data = self.json("/api/simulate?source=historical&start=2024-06-04&hours=24")
+        self.assertEqual(len(data["net_export_gw"]), data["params"]["hours"])
+        self.assertIn("net_export_gwh", data["kpis"])
+
     def test_unbekannte_quelle_faellt_auf_erzeugte_profile_zurueck(self):
         data = self.json("/api/simulate?source=phantasie")
         self.assertEqual(data["source"], "synthetic")
@@ -430,7 +480,32 @@ class AnalysisFormTest(ApiTestCase):
         self.assertIn("SMARD", self.body)
 
 
+class StoriesApiTest(ApiTestCase):
+    def test_endpunkt_liefert_die_geschichten(self):
+        data = self.json("/api/stories")
+        self.assertGreaterEqual(len(data), 3)
+        self.assertIn("steps", data[0])
+
+    def test_seite_bringt_platz_fuer_geschichten_und_vergleich(self):
+        html = self.client.get("/analysen").text
+        for marke in ('id="story-list"', 'id="story-panel"',
+                      'id="pin-scenario"', 'id="diff-box"', 'id="unpin-scenario"'):
+            self.assertIn(marke, html, marke)
+
+    def test_die_neuen_module_werden_geladen(self):
+        """Sie hängen an analysis.js — fehlt dort der Import, bleibt die Seite stumm."""
+        quelle = self.client.get("/static/js/analysis.js").text
+        self.assertIn("./stories.js", quelle)
+        self.assertIn("./compare.js", quelle)
+
+
 class StylesheetTest(ApiTestCase):
+    def test_die_vergleichsfarbe_ist_in_beiden_modi_gesetzt(self):
+        """Ohne Token fiele die gemerkte Kurve auf eine Ersatzfarbe zurück, die
+        neben den Vorhersagekurven nicht mehr zu unterscheiden wäre."""
+        css = self.client.get("/static/css/style.css").text
+        self.assertGreaterEqual(css.count("--s-pinned"), 3)
+
     def test_ausgeblendete_felder_werden_wirklich_versteckt(self):
         """`.field` setzt display:flex und würde das hidden-Attribut sonst überstimmen."""
         css = self.get("/static/css/style.css").text

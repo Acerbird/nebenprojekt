@@ -5,8 +5,10 @@ werden aus Brennstoffpreis, Wirkungsgrad und CO₂-Preis gerechnet, die Nachfrag
 wird Stunde für Stunde aus der billigsten verfügbaren Leistung gedeckt, und der
 Preis ist der des letzten benötigten Blocks (Einheitspreisverfahren).
 
-Nicht abgebildet: Speicher, Import/Export, Mindestlasten, An- und Abfahrkosten,
-Netzengpässe. Die Ergebnisse sind Größenordnungen, keine Prognose.
+Abgebildet sind inzwischen auch Speicher, der Außenhandel, Mindestlasten der
+thermischen Blöcke und ein Knappheitsaufschlag. Nicht abgebildet: An- und
+Abfahrkosten im Einzelnen, Netzengpässe innerhalb Deutschlands, Reservemärkte.
+Die Ergebnisse sind Größenordnungen, keine Prognose.
 """
 
 import json
@@ -14,7 +16,7 @@ import os
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
-from .data import sources
+from .data import fuel_prices, sources
 from .utils import profiles
 
 _DATA_PATH = os.path.join(os.path.dirname(__file__), "static_data", "power_plants.json")
@@ -23,6 +25,7 @@ with open(_DATA_PATH, encoding="utf-8") as fh:
     FLEET = json.load(fh)
 
 STORAGE_UNITS = FLEET.get("storage", [])
+EXCHANGE = FLEET.get("exchange", {})
 
 # Preis, zu dem die Nachfrage rechnerisch nicht mehr gedeckt werden kann.
 SCARCITY_PRICE = 400.0
@@ -45,7 +48,71 @@ FORECAST_LABELS = {
 # Anlagen mit Einspeisevergütung aussteigen.
 PRICE_FLOOR = -500.0
 
+# Gebot der Mindestlast thermischer Blöcke. Wer nachts abfährt, muss morgens
+# wieder anfahren; das kostet Brennstoff, Material und Zeit. Solange der
+# Verlust je Stunde kleiner ist als ein Start, bleibt der Block im Markt und
+# nimmt dafür auch einen negativen Preis hin.
+MIN_LOAD_BID = -80.0
+# Auch die Mindestlast ist keine Stufe: Ältere Blöcke fahren eher ab als neue.
+MIN_LOAD_BID_SPAN = 60.0
+# Standardmäßig aus — und das ist ein unbequemes Ergebnis, kein Versehen.
+#
+# Der Effekt ist real und an SMARD gemessen (siehe power_plants.json). Trotzdem
+# wird das Modell damit schlechter, über 24 Wochen quer durch drei Jahre:
+#
+#                        MAE      r     Bias
+#     mit Mindestlast   23,52   0,702   -8,41
+#     ohne              19,76   0,795   -0,13
+#
+# Die naheliegende Erklärung — Mindestlast und die sehr tiefen Gebote der
+# Erneuerbaren erklärten beide dasselbe und würden doppelt gezählt — ist
+# geprüft und falsch: Werden die EE-Gebote von -500 auf -60 angehoben, ändert
+# sich fast nichts (MAE 23,00 statt 23,52). Auch ein flacheres Mindestlastgebot
+# hilft nicht (-40: MAE 23,19).
+#
+# Weshalb es dann schadet, ist offen. Der Verdacht: Der hinterlegte Park ist zu
+# groß, und zusätzliche billige Leistung am unteren Ende verschiebt die ganze
+# Kurve. Das wäre ein Grund, den Park zu prüfen — nicht, den Effekt zu
+# verschweigen. Deshalb bleibt er als Schalter erhalten und ausgeschaltet.
+MIN_LOAD_DEFAULT = False
+
+# Ab welcher Reserve wird es knapp? Unterhalb dieses Anteils freier Leistung
+# bieten die letzten Kraftwerke über ihren Grenzkosten — sie wissen, dass ohne
+# sie niemand liefert. Ein reines Grenzkostenmodell kennt diesen Aufschlag
+# nicht und rechnet Knappheitsstunden deshalb systematisch zu billig.
+#
+# Beide Zahlen sind gemessen, nicht geschätzt. Über zwölf Wochen quer durch
+# 2023 bis 2025, nach tatsächlichem Preis sortiert:
+#
+#     Ist-Preis      mittlere Reserve   Modell ohne Aufschlag
+#     unter 0                  59 %                     -13
+#     60 bis 90                48 %                      74
+#     90 bis 130               40 %                      88
+#     130 bis 200              31 %                      95
+#     über 200                 24 %                     106
+#
+# Die Reserve fällt also selbst in den teuersten Stunden nie unter ein Fünftel;
+# eine Schwelle von zehn oder zwölf Prozent hätte nie gegriffen.
+#
+# Die beiden Werte unten sind auf 2023/24 gesucht und an 2025 geprüft worden,
+# danach über 24 Wochen quer durch drei Jahre gegengerechnet. Dort schneiden
+# sie so ab:
+#
+#     ohne Aufschlag      MAE 24,25   r 0,727   Bias -14,12
+#     0,40 / 120          MAE 23,89   r 0,695   Bias  -7,63
+#     0,35 / 180          MAE 24,02   r 0,705   Bias  -8,69
+#     0,45 / 120          MAE 25,33   r 0,644   Bias  -3,62
+#
+# Der Aufschlag halbiert also die systematische Unterschätzung und kostet dafür
+# etwas Gleichlauf. Das ist ein bewusster Tausch: Ein Modell, das den Preis im
+# Mittel um vierzehn Euro zu niedrig ansetzt, führt beim Vergleich mit echten
+# Zahlen stärker in die Irre als eines, das im Einzelfall etwas streut.
+SCARCITY_MARGIN = 0.40
+# Aufschlag, wenn die Reserve vollständig aufgebraucht wäre.
+SCARCITY_MARKUP_MAX = 120.0
+
 DEFAULTS = {
+    "min_load": MIN_LOAD_DEFAULT,
     "wind_gw": 70.0,
     "solar_gw": 90.0,
     "co2_price": 80.0,
@@ -67,6 +134,17 @@ LIMITS = {
 }
 
 
+def _as_bool(value) -> bool:
+    """Wahrheitswerte aus einer Adresszeile lesen.
+
+    Aus einer URL kommt alles als Zeichenkette an, und `bool("false")` ist wahr.
+    Deshalb werden die üblichen Verneinungen ausdrücklich abgefangen.
+    """
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "0", "false", "nein", "off")
+    return bool(value)
+
+
 def clamp(value: float, bounds) -> float:
     low, high = bounds
     return max(low, min(high, value))
@@ -75,12 +153,18 @@ def clamp(value: float, bounds) -> float:
 def normalise_params(**kwargs) -> Dict:
     """Werte in gültige Bereiche zwingen, damit die API nie mit Müll rechnet."""
     params = dict(DEFAULTS)
+    # Ob ein Preisregler angefasst wurde, muss vor dem Auffüllen mit
+    # Standardwerten feststehen: Nur dann lässt sich später unterscheiden, ob
+    # 32 Euro Gaspreis eine Eingabe sind oder bloß der Vorgabewert.
+    for key in ("co2_price", "gas_price", "wind_gw", "solar_gw"):
+        params[key + "_set"] = kwargs.get(key) is not None
     for key, value in kwargs.items():
         if value is not None:
             params[key] = value
     for key, bounds in LIMITS.items():
         params[key] = clamp(float(params[key]), bounds)
     params["hours"] = int(params["hours"])
+    params["min_load"] = _as_bool(params["min_load"])
     if params["season"] not in profiles.SEASONS:
         params["season"] = profiles.DEFAULT_SEASON
     if params["source"] not in (sources.SYNTHETIC, sources.HISTORICAL):
@@ -92,6 +176,12 @@ def normalise_params(**kwargs) -> Dict:
         params["adjustments"] = window["adjustments"]
     else:
         params["start_ts"] = None
+    # Echte Messwerte verdienen echte Brennstoffpreise. Bei erzeugten Profilen
+    # gibt es keinen Monat, auf den man sie beziehen könnte.
+    params["fuel_source"] = ("historical"
+                             if params["source"] == sources.HISTORICAL
+                             and fuel_prices.available()
+                             else "fixed")
     return params
 
 
@@ -142,7 +232,8 @@ def resolve_window(params: Dict) -> Dict:
 
 
 def block_costs(plant: Dict, co2_price: float,
-                gas_price: Optional[float] = None) -> Tuple[float, float]:
+                gas_price: Optional[float] = None,
+                coal_price: Optional[float] = None) -> Tuple[float, float]:
     """Gebotsspanne eines Blocks in €/MWh_el.
 
     Ein Kraftwerkspark besteht nicht aus einem einzigen Block je Technologie,
@@ -166,6 +257,10 @@ def block_costs(plant: Dict, co2_price: float,
         price_th = fuel["price_eur_per_mwh_th"]
         if plant["fuel"] == "erdgas" and gas_price is not None:
             price_th = gas_price
+        # Braunkohle bleibt außen vor: Sie wird im Tagebau neben dem Kraftwerk
+        # gefördert und nicht gehandelt, ihr Preis ist keine Marktgröße.
+        if plant["fuel"] == "steinkohle" and coal_price is not None:
+            price_th = coal_price
         emission_th = fuel["emission_t_per_mwh_th"]
         variable_th = price_th + co2_price * emission_th
         # Günstigster Preis beim besten Wirkungsgrad, teuerster beim schlechtesten.
@@ -175,9 +270,10 @@ def block_costs(plant: Dict, co2_price: float,
     return round(low, 2), round(max(high, low), 2)
 
 
-def marginal_cost(plant: Dict, co2_price: float, gas_price: Optional[float] = None) -> float:
+def marginal_cost(plant: Dict, co2_price: float, gas_price: Optional[float] = None,
+                  coal_price: Optional[float] = None) -> float:
     """Mittlere Grenzkosten eines Blocks — für Vergleiche und Erklärseiten."""
-    low, high = block_costs(plant, co2_price, gas_price)
+    low, high = block_costs(plant, co2_price, gas_price, coal_price)
     return round((low + high) / 2, 2)
 
 
@@ -193,8 +289,64 @@ def emission_intensity(plant: Dict) -> float:
     return FLEET["fuels"][plant["fuel"]]["emission_t_per_mwh_th"] / mean_efficiency
 
 
+# --------------------------------------------------- Brennstoffpreise
+
+def fuel_costs_for(ts: Optional[int], params: Dict) -> Dict:
+    """Welche Brennstoff- und CO₂-Preise gelten in dieser Stunde?
+
+    Zwei Betriebsarten, und der Unterschied ist wichtig:
+
+    * Hat der Benutzer einen Regler angefasst, gilt sein Wert — sonst wäre die
+      Frage "Was macht ein CO₂-Preis von 150 Euro?" nicht zu stellen.
+    * Sonst gelten bei echten Messwerten die Preise des jeweiligen Monats. Ein
+      fester Gaspreis von 32 Euro rechnet das Frühjahr 2023 um gut 40 Euro je
+      Megawattstunde zu billig, weil Gas damals das Doppelte kostete.
+
+    Fehlt ein Monat in der Tabelle, bleibt es beim eingestellten Wert. Geraten
+    wird nichts.
+    """
+    used = {
+        "co2_price": params["co2_price"],
+        "gas_price": params["gas_price"],
+        "coal_price": None,
+        # Je Größe, woher der Wert stammt: "fixed" für den Regler, "historical"
+        # für den gemessenen Monatswert. Ohne diese Unterscheidung stünde in der
+        # Herkunftszeile der Vorgabewert 32 €/MWh als gemessener Gaspreis.
+        "used": {},
+        "carried_forward": {},
+        "origin": "fixed",
+        "month": None,
+    }
+    if ts is None or params.get("fuel_source") != "historical":
+        return used
+
+    month = fuel_prices.for_timestamp(ts)
+    used["month"] = fuel_prices.month_key(ts)
+    if not month:
+        return used
+
+    carried = month.get("carried_forward", {})
+    for name, field, gesetzt in (("co2_price", "co2_eur_per_t", "co2_price_set"),
+                                 ("gas_price", "gas_eur_per_mwh_th", "gas_price_set"),
+                                 ("coal_price", "coal_eur_per_mwh_th", None)):
+        if gesetzt and params.get(gesetzt):
+            used["used"][name] = "fixed"
+            continue
+        if field not in month:
+            continue
+        used[name] = month[field]
+        used["used"][name] = "historical"
+        if field in carried:
+            used["carried_forward"][name] = carried[field]
+    if "historical" in used["used"].values():
+        used["origin"] = "historical"
+    return used
+
+
 def merit_order(co2_price: float, gas_price: float,
-                wind_gw: float = 0.0, solar_gw: float = 0.0) -> List[Dict]:
+                wind_gw: float = 0.0, solar_gw: float = 0.0,
+                coal_price: Optional[float] = None,
+                min_load: bool = MIN_LOAD_DEFAULT) -> List[Dict]:
     """Alle Blöcke nach Grenzkosten sortiert.
 
     Wind und PV stehen mit ihrer installierten Leistung und Grenzkosten von
@@ -216,16 +368,38 @@ def merit_order(co2_price: float, gas_price: float,
             "note": bids.get("note", "Keine Brennstoffkosten."),
         })
     for plant in FLEET["plants"]:
-        low, high = block_costs(plant, co2_price, gas_price)
+        low, high = block_costs(plant, co2_price, gas_price, coal_price)
+        emission = round(emission_intensity(plant), 3)
+        # Mindestlast: Ein laufender Großblock lässt sich nicht beliebig weit
+        # herunterfahren, und ihn ganz abzustellen kostet Stunden und Geld.
+        # Dieser Teil der Leistung bietet deshalb weit unter seinen Grenzkosten
+        # an — er will im Markt bleiben, nicht verdienen. Genau daraus entstehen
+        # die Stunden mit negativen Preisen, in denen trotzdem Kohle läuft.
+        floor_share = float(plant.get("min_load_share", 0.0)) if min_load else 0.0
+        floor_gw = plant["capacity_gw"] * floor_share
+        if floor_gw > 0:
+            bid = float(plant.get("min_load_bid", MIN_LOAD_BID))
+            blocks.append({
+                "id": plant["id"] + "_mindestlast",
+                "name": plant["name"] + " (Mindestlast)",
+                "category": plant["category"],
+                "kind": plant["kind"],
+                "capacity_gw": round(floor_gw, 3),
+                "cost_low": bid,
+                "cost_high": round(min(bid + MIN_LOAD_BID_SPAN, low), 2),
+                "emission": emission,
+                "note": "Bleibt im Markt, statt abzufahren — bietet deshalb "
+                        "auch bei negativen Preisen an.",
+            })
         blocks.append({
             "id": plant["id"],
             "name": plant["name"],
             "category": plant["category"],
             "kind": plant["kind"],
-            "capacity_gw": plant["capacity_gw"],
+            "capacity_gw": round(plant["capacity_gw"] - floor_gw, 3),
             "cost_low": low,
             "cost_high": high,
-            "emission": round(emission_intensity(plant), 3),
+            "emission": emission,
             "note": plant.get("note", ""),
         })
     # Nach dem Beginn der Gebotsspanne sortiert; die Spannen überlappen sich,
@@ -311,23 +485,118 @@ def supply_at_price(blocks: List[Dict], price: float, available: Dict) -> float:
                for block in blocks)
 
 
-def clear_market(blocks: List[Dict], demand_gw: float, available: Dict) -> float:
+def capacity_at_price(blocks: List[Dict], available: Dict) -> float:
+    """Gesamte Leistung, die dieser Park in dieser Stunde aufbieten kann."""
+    return sum(block_capacity(block, available) for block in blocks)
+
+
+def exchange_at_price(price: float) -> float:
+    """Nettoexport in GW bei diesem Preis — positiv bei Ausfuhr.
+
+    Der erste Versuch war, den tatsächlich gemessenen Außenhandel als
+    zusätzliche Nachfrage einzusetzen. Das ging gründlich schief, und der Grund
+    ist lehrreich: Der Export ist nicht die Ursache des Preises, sondern seine
+    Folge. Mittags exportiert Deutschland zwölf Gigawatt, *weil* der Preis bei
+    minus zehn Euro liegt. Rechnet man diese zwölf Gigawatt als Nachfrage
+    hinein, verschwindet der Überschuss, und das Modell sagt plus achtzig statt
+    minus zehn — es dreht die Kausalität um.
+
+    Richtig ist der Außenhandel eine preisabhängige Nachfrage: Die Nachbarn
+    kaufen, wenn Deutschland billig ist, und verkaufen, wenn es teuer ist.
+    Genau das leistet diese Kurve. Sie ist keine Annahme, sondern am Bestand
+    gemessen — medianer Nettoexport je Preisklasse über 32.711 Stunden, siehe
+    power_plants.json. Zwischen den Stützstellen wird linear interpoliert, an
+    den Rändern begrenzt die Kuppelleistung.
+
+    Damit wirkt der Handel in beide Richtungen als Puffer: Im Überschuss
+    saugt der Export ihn ab, statt den Preis ins Bodenlose fallen zu lassen;
+    in der Knappheit entlastet der Import den heimischen Park.
+    """
+    curve = EXCHANGE.get("curve")
+    if not curve:
+        return 0.0
+    max_export = float(EXCHANGE.get("max_export_gw", curve[0][1]))
+    max_import = float(EXCHANGE.get("max_import_gw", -curve[-1][1]))
+    if price <= curve[0][0]:
+        value = curve[0][1]
+    elif price >= curve[-1][0]:
+        value = curve[-1][1]
+    else:
+        value = curve[-1][1]
+        for (p0, v0), (p1, v1) in zip(curve, curve[1:]):
+            if p0 <= price <= p1:
+                share = (price - p0) / (p1 - p0) if p1 > p0 else 0.0
+                value = v0 + share * (v1 - v0)
+                break
+    return max(-max_import, min(max_export, value))
+
+
+def demand_at_price(demand_gw: float, price: float, trade: bool) -> float:
+    """Gesamte Nachfrage bei diesem Preis: inländische Last plus Nettoexport."""
+    if not trade:
+        return demand_gw
+    return max(demand_gw + exchange_at_price(price), 0.0)
+
+
+def scarcity_markup(demand_gw: float, capacity_gw: float) -> float:
+    """Aufschlag über den Grenzkosten, wenn die Reserve knapp wird.
+
+    Ein reines Grenzkostenmodell nimmt an, dass jedes Kraftwerk zu seinen
+    variablen Kosten bietet. Das stimmt, solange reichlich Leistung da ist. Wird
+    es eng, weiß der letzte verfügbare Block, dass ohne ihn niemand liefert —
+    und bietet darüber. Real sind das die Stunden, in denen der Preis auf 200
+    oder 400 Euro springt, ohne dass sich an den Brennstoffkosten etwas geändert
+    hätte.
+
+    Der Aufschlag wächst linear mit der Enge. Ein quadratischer Verlauf lag
+    näher, traf die Messung aber schlechter: Er bleibt nahe der Schwelle zu
+    flach und steigt dann zu spät.
+    """
+    if capacity_gw <= 0:
+        return SCARCITY_MARKUP_MAX
+    margin = (capacity_gw - demand_gw) / capacity_gw
+    if margin >= SCARCITY_MARGIN:
+        return 0.0
+    tightness = (SCARCITY_MARGIN - max(margin, 0.0)) / SCARCITY_MARGIN
+    return SCARCITY_MARKUP_MAX * tightness
+
+
+def clear_market(blocks: List[Dict], demand_gw: float, available: Dict,
+                 trade: bool = False) -> float:
     """Markträumungspreis: der Preis, bei dem Angebot die Nachfrage deckt.
 
-    Gesucht per Intervallhalbierung, weil die Angebotskurve monoton steigt. Das
+    Gesucht per Intervallhalbierung. Die Angebotskurve steigt monoton mit dem
+    Preis, die Nachfragekurve fällt monoton (höherer Preis, weniger Export) —
+    der Schnittpunkt ist deshalb eindeutig und die Halbierung findet ihn. Das
     ist derselbe Gedanke wie beim Einheitspreisverfahren der Börse, nur ohne
-    einzelne Gebote: Der Preis steigt, bis genug Leistung anbietet.
+    einzelne Gebote.
+
+    Der Knappheitsaufschlag steckt in der Suche, nicht dahinter. Das ist kein
+    Schönheitsfehler: Würde er erst auf den geräumten Preis aufgeschlagen,
+    gehörte die Handelsmenge zu einem anderen Preis als dem am Ende
+    ausgewiesenen — der Markt räumte eine Menge und wiese eine andere aus.
+    Innerhalb der Suche bleibt beides beisammen. Monoton bleibt es auch: Mit
+    steigendem Preis sinkt die Nachfrage, damit steigt die Reserve, damit
+    fällt der Aufschlag — der um ihn bereinigte Gebotspreis steigt also.
     """
+    capacity = capacity_at_price(blocks, available)
+
+    def gap(price: float) -> float:
+        """Angebot minus Nachfrage bei diesem Preis. Die Nullstelle ist gesucht."""
+        wanted = demand_at_price(demand_gw, price, trade)
+        extra = scarcity_markup(wanted, capacity) if price > 0 else 0.0
+        return supply_at_price(blocks, price - extra, available) - wanted
+
     low, high = PRICE_FLOOR, SCARCITY_PRICE
-    if supply_at_price(blocks, high, available) < demand_gw - 1e-9:
+    if gap(high) < -1e-9:
         return SCARCITY_PRICE          # selbst zum Höchstpreis reicht es nicht
-    if supply_at_price(blocks, low, available) >= demand_gw:
+    if gap(low) >= 0:
         return PRICE_FLOOR             # schon zum Mindestpreis ist zu viel da
     # 40 Halbierungen bringen die Spanne von rund 900 €/MWh weit unter einen
     # Cent — mehr Schritte kosten nur Rechenzeit.
     for _ in range(40):
         middle = (low + high) / 2
-        if supply_at_price(blocks, middle, available) < demand_gw:
+        if gap(middle) < 0:
             low = middle
         else:
             high = middle
@@ -339,7 +608,8 @@ def clear_market(blocks: List[Dict], demand_gw: float, available: Dict) -> float
     return high
 
 
-def dispatch_hour(demand_gw: float, blocks: List[Dict], available: Dict) -> Dict:
+def dispatch_hour(demand_gw: float, blocks: List[Dict], available: Dict,
+                  trade: bool = False) -> Dict:
     """Kraftwerkseinsatz einer einzelnen Stunde über die Angebotskurve.
 
     Jeder Block bietet in einer Spanne an statt zu einem festen Preis. Gesucht
@@ -356,7 +626,19 @@ def dispatch_hour(demand_gw: float, blocks: List[Dict], available: Dict) -> Dict
     * Reicht selbst der gesamte Park nicht, steht der Knappheitspreis.
     """
     demand_gw = max(demand_gw, 0.0)
-    price = clear_market(blocks, demand_gw, available)
+    price = clear_market(blocks, demand_gw, available, trade)
+    # Beim geräumten Preis steht auch fest, wie viel die Nachbarn nehmen.
+    exchange = exchange_at_price(price) if trade else 0.0
+    demand_gw = max(demand_gw + exchange, 0.0)
+
+    # Der Aufschlag steckt schon im geräumten Preis. Hier wird er nur noch
+    # einmal ausgerechnet, um ihn ausweisen zu können — er ist der Abstand
+    # zwischen dem, was der Grenzblock kostet, und dem, was gezahlt wird.
+    total_capacity = capacity_at_price(blocks, available)
+    markup = scarcity_markup(demand_gw, total_capacity) if price > 0 else 0.0
+    # Geboten wird nach Grenzkosten. Wer läuft, entscheidet deshalb der Preis
+    # ohne den Aufschlag: Der Aufschlag ist Knappheitsrente, kein Kostenblock.
+    bid_price = price - markup
 
     # Einsatz je Block beim geräumten Preis.
     used_by_block = []
@@ -365,7 +647,7 @@ def dispatch_hour(demand_gw: float, blocks: List[Dict], available: Dict) -> Dict
         capacity = block_capacity(block, available)
         if capacity <= 0:
             continue
-        used = capacity * bid_share(block, price)
+        used = capacity * bid_share(block, bid_price)
         used_by_block.append([block, capacity, used])
         produced += used
 
@@ -402,6 +684,9 @@ def dispatch_hour(demand_gw: float, blocks: List[Dict], available: Dict) -> Dict
         "curtailed_gw": max(curtailed_ee, 0.0),
         "curtailed_ee_gw": max(curtailed_ee, 0.0),
         "throttled_must_run_gw": 0.0,
+        "scarcity_markup": round(markup, 2),
+        "reserve_gw": round(max(total_capacity - demand_gw, 0.0), 3),
+        "net_export_gw": round(exchange, 3),
         # Fließkommareste sind keine Unterdeckung.
         "unserved_gw": max(demand_gw - produced, 0.0) if demand_gw - produced > 1e-6 else 0.0,
     }
@@ -525,6 +810,53 @@ def plan_storage(prices: List[float], units: List[Dict]) -> Dict:
 # ---------------------------------------------------- Vergleich mit der Realität
 
 
+# Um wie viel darf ein Regler vom tatsächlichen Stand abweichen, bevor das
+# Szenario nicht mehr das abbildet, was in dieser Woche wirklich passiert ist?
+# Zehn Prozent lassen Rundung und Interpolation der installierten Leistung
+# durchgehen und fangen jeden ernstgemeinten Zubau ab.
+COUNTERFACTUAL_TOLERANCE = 0.10
+
+
+def counterfactual_reasons(params: Dict, series_meta: Dict,
+                           fuel_used: Dict) -> List[str]:
+    """Worin weicht dieses Szenario von der Wirklichkeit ab?
+
+    Der Vergleich mit dem tatsächlich gezahlten Preis ist nur dann eine Aussage
+    über die Güte des Modells, wenn das Szenario auch die Wirklichkeit meint.
+    Wer die Windleistung verdoppelt, rechnet eine andere Welt durch — die
+    Abweichung zum echten Preis misst dann nicht mehr das Modell, sondern den
+    Unterschied der beiden Welten.
+
+    Ohne diesen Hinweis liest sich eine mittlere Abweichung von 58 €/MWh wie ein
+    schlechtes Modell, obwohl sie nur bedeutet: In dieser Woche standen eben
+    keine 140 Gigawatt Wind.
+    """
+    gruende = []
+    installed = (series_meta or {}).get("installed_gw") or {}
+    for name, regler in (("wind", "wind_gw"), ("solar", "solar_gw")):
+        echt = installed.get(name)
+        if not echt or not params.get(regler + "_set"):
+            continue
+        gewaehlt = params.get(regler)
+        if gewaehlt is None or abs(gewaehlt - echt) <= COUNTERFACTUAL_TOLERANCE * echt:
+            continue
+        gruende.append("%s %s GW statt der tatsächlichen %s GW"
+                       % ("Wind" if name == "wind" else "Photovoltaik",
+                          round(gewaehlt), round(echt)))
+
+    if (series_meta or {}).get("load_scaled_by"):
+        gruende.append("die gemessene Last wurde gestreckt")
+
+    benutzt = {}
+    for costs in (fuel_used or {}).values():
+        benutzt.update(costs.get("used") or {})
+    if benutzt.get("co2_price") == "fixed":
+        gruende.append("ein eingestellter CO₂-Preis statt des tatsächlichen")
+    if benutzt.get("gas_price") == "fixed":
+        gruende.append("ein eingestellter Gaspreis statt des tatsächlichen")
+    return gruende
+
+
 def compare_with_actual(model_prices: List[float],
                         actual_prices: List[Optional[float]]) -> Optional[Dict]:
     """Modellpreis gegen tatsächlichen Börsenpreis.
@@ -575,7 +907,7 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
              co2_price: Optional[float] = None, gas_price: Optional[float] = None,
              peak_load_gw: Optional[float] = None, hours: Optional[int] = None,
              season: Optional[str] = None, source: Optional[str] = None,
-             start: Optional[str] = None) -> Dict:
+             start: Optional[str] = None, min_load: Optional[bool] = None) -> Dict:
     """Stündlicher Einsatz über den gewählten Zeitraum."""
     # Ob der Höchstlast-Regler angefasst wurde, muss vor dem Auffüllen mit
     # Standardwerten feststehen — sonst wäre bei echten Daten nicht mehr
@@ -583,7 +915,8 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     scale_to_peak = peak_load_gw is not None
     params = normalise_params(wind_gw=wind_gw, solar_gw=solar_gw, co2_price=co2_price,
                               gas_price=gas_price, peak_load_gw=peak_load_gw,
-                              hours=hours, season=season, source=source, start=start)
+                              hours=hours, season=season, source=source, start=start,
+                              min_load=min_load)
     n = params["hours"]
 
     # Die Zeitreihen kommen aus einer austauschbaren Quelle. Ab hier ist
@@ -591,18 +924,65 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     series = resolve_series(params, scale_to_peak)
     n = series.hours
     params["hours"] = n
+
+    # Bei echten Messwerten gilt der tatsächliche Ausbaustand, solange niemand
+    # den Regler angefasst hat. Die Vorgabewerte sind eine Momentaufnahme und
+    # veralten: 90 GW Photovoltaik waren 2024 richtig, im Januar 2025 standen
+    # 101. Über zwölf Wochen quer durch drei Jahre sinkt die mittlere Abweichung
+    # dadurch von 19,9 auf 17,9 €/MWh — der Fehler steckte nicht im Modell,
+    # sondern in einer veralteten Zahl.
+    params["capacity_source"] = "fixed"
+    installed = (series.meta or {}).get("installed_gw") or {}
+    if params["source"] == sources.HISTORICAL and installed:
+        for name, regler in (("wind", "wind_gw"), ("solar", "solar_gw")):
+            if not params.get(regler + "_set") and installed.get(name):
+                params[regler] = clamp(float(installed[name]), LIMITS[regler])
+                params["capacity_source"] = "historical"
+
     demand = series.load_gw
     wind_avail = series.wind_gw(params["wind_gw"])
     solar_avail = series.solar_gw(params["solar_gw"])
 
-    blocks = merit_order(params["co2_price"], params["gas_price"],
-                         params["wind_gw"], params["solar_gw"])
+    # Deutschland ist keine Insel. In Exportstunden muss der Kraftwerkspark mehr
+    # decken als die inländische Last, in Importstunden weniger. Der Außenhandel
+    # wird dabei als gegeben genommen, nicht erklärt: Warum die Nachbarn gerade
+    # kaufen oder verkaufen, hinge an ihren eigenen Preisen — dafür bräuchte es
+    # ein europäisches Modell. Was das Modell davon hat, ist trotzdem viel: Die
+    # Exportstunden sind genau die, in denen der Preis sonst zu tief lag.
+    # Gehandelt wird nur dort, wo der Kurvenverlauf gemessen ist: im deutschen
+    # Markt mit echten Daten. Erzeugte Profile haben keinen Außenhandel.
+    trade = bool(EXCHANGE.get("curve")) and params["source"] == sources.HISTORICAL
+    measured_export = list(series.net_export_gw) if series.net_export_gw else []
+    if len(measured_export) != n:
+        measured_export = []
+
+    # Brennstoffpreise können sich über den Zeitraum ändern — ein Fenster kann
+    # zwei oder drei Monate berühren. Die Merit-Order wird deshalb je Monat
+    # einmal gebaut und für die Stunden dieses Monats wiederverwendet.
+    blocks_by_month: Dict[str, List[Dict]] = {}
+    hour_blocks: List[List[Dict]] = []
+    fuel_used: Dict[str, Dict] = {}
+    for h in range(n):
+        ts = params["start_ts"] + h * 3600 if params.get("start_ts") is not None else None
+        costs = fuel_costs_for(ts, params)
+        key = costs["month"] or "fixed"
+        if key not in blocks_by_month:
+            blocks_by_month[key] = merit_order(
+                costs["co2_price"], costs["gas_price"],
+                params["wind_gw"], params["solar_gw"], costs["coal_price"],
+                params["min_load"])
+            fuel_used[key] = costs
+        hour_blocks.append(blocks_by_month[key])
+    blocks = hour_blocks[0] if hour_blocks else merit_order(
+        params["co2_price"], params["gas_price"], params["wind_gw"], params["solar_gw"],
+        None, params["min_load"])
     categories = [c["id"] for c in FLEET["categories"]]
 
     generation = {cat: [0.0] * n for cat in categories}
     prices: List[float] = []
     curtailed: List[float] = []
     residual: List[float] = []
+    net_export: List[float] = []
 
     emissions_t = 0.0
     curtailed_gwh = 0.0
@@ -616,6 +996,9 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     } for h in range(n)]
 
     for h in range(n):
+        # Residuallast nach üblicher Lesart: inländische Last minus Wind und
+        # Photovoltaik. Der Außenhandel steckt bewusst nicht darin, damit die
+        # Kurve dieselbe Größe zeigt wie die von SMARD.
         residual.append(round(demand[h] - wind_avail[h] - solar_avail[h], 3))
 
     # Speicher koppelt die Stunden: Was nachts eingespeichert wird, fehlt nachts
@@ -623,7 +1006,7 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     # ohne Speicher als Entscheidungsgrundlage, dann der Einsatz mit ihm.
     # Die Vereinfachung dabei: Der Speicher plant anhand der Preise, die ohne
     # ihn entstanden wären, und sieht seine eigene Wirkung nicht voraus.
-    preliminary_prices = [dispatch_hour(demand[h], blocks, hourly_available[h])["price"]
+    preliminary_prices = [dispatch_hour(demand[h], hour_blocks[h], hourly_available[h], trade)["price"]
                           for h in range(n)]
     storage = plan_storage(preliminary_prices, STORAGE_UNITS)
     charge = storage["charge_gw"]
@@ -632,12 +1015,13 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     for h in range(n):
         # Laden erhöht die Nachfrage, Entladen bedient einen Teil davon.
         net_demand = max(demand[h] + charge[h] - discharge[h], 0.0)
-        hour = dispatch_hour(net_demand, blocks, hourly_available[h])
+        hour = dispatch_hour(net_demand, hour_blocks[h], hourly_available[h], trade)
 
         for category, value in hour["generation"].items():
             generation[category][h] += value
         generation["speicher"][h] = discharge[h]
 
+        net_export.append(hour["net_export_gw"])
         emissions_t += hour["emissions_t"]
         curtailed.append(round(hour["curtailed_gw"], 3))
         curtailed_gwh += hour["curtailed_gw"]
@@ -666,6 +1050,10 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
             validation = compare_with_actual(prices, massstab)
             if validation:
                 validation["benchmark"] = massstab_name
+                # Misst dieser Vergleich das Modell — oder nur den Abstand zu
+                # einer Welt, die es nicht gab?
+                validation["counterfactual"] = counterfactual_reasons(
+                    params, series.meta, fuel_used)
                 # Der SMARD-Preis bleibt die angezeigte Kurve.
                 validation["actual_price_eur_mwh"] = actual or massstab
             for model, values in vorhersagen.items():
@@ -682,8 +1070,10 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     total_demand = sum(demand)
     charged_gwh = sum(charge)
     discharged_gwh = sum(discharge)
-    # Erzeugt werden muss die Nachfrage plus das, was in die Speicher geht.
-    total_generation = total_demand + charged_gwh
+    net_export_gwh = sum(net_export)
+    # Erzeugt werden muss die inländische Nachfrage, das was in die Speicher
+    # geht, und der Nettoexport. Letzterer ist negativ, wenn eingeführt wird.
+    total_generation = total_demand + charged_gwh + net_export_gwh
     renewable_gen = sum(generation["wind"]) + sum(generation["solar"]) + sum(generation["sonstige_ee"])
     price_weighted = sum(p * d for p, d in zip(prices, demand)) / total_demand if total_demand else 0.0
 
@@ -698,6 +1088,14 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
         "storage": {"units": storage["units"],
                     "cheap_threshold": storage["cheap_threshold"],
                     "expensive_threshold": storage["expensive_threshold"]},
+        "net_export_gw": [round(v, 3) for v in net_export],
+        "measured_net_export_gw": [round(v, 3) for v in measured_export],
+        "fuel_costs": {
+            "source": params["fuel_source"],
+            "months": {key: {k: v for k, v in costs.items() if k != "month"}
+                       for key, costs in sorted(fuel_used.items())},
+            "table": fuel_prices.span(),
+        },
         "price_eur_mwh": prices,
         "available_gw": {"wind": wind_avail, "solar": solar_avail},
         "categories": FLEET["categories"],
@@ -716,6 +1114,9 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
             "storage_charged_gwh": round(charged_gwh, 1),
             "storage_discharged_gwh": round(discharged_gwh, 1),
             "storage_losses_gwh": round(charged_gwh - discharged_gwh, 1),
+            "net_export_gwh": round(net_export_gwh, 1),
+            "export_hours": sum(1 for v in net_export if v > 0.01),
+            "import_hours": sum(1 for v in net_export if v < -0.01),
         },
         "params": params,
         "season_label": series.label,
@@ -726,6 +1127,23 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
         # Zeitstempel oben sind UTC — hierin gehören sie angezeigt.
         "display_timezone": series.display_timezone,
     }
+
+
+def stories() -> List[Dict]:
+    """Geführte Fragen mit fertigen Parametersätzen.
+
+    Der Simulator beantwortet jede Frage, die man ihm stellt — aber er stellt
+    keine. Wer zum ersten Mal darauf schaut, sieht sieben Regler und weiß nicht,
+    an welchem er drehen soll. Die Geschichten liefern die Frage mit: Jeder
+    Schritt setzt einen Parametersatz und sagt dazu, worauf zu achten ist.
+
+    Die Parameter gehen durch dieselbe Prüfung wie jede andere Eingabe. Eine
+    Geschichte kann das Modell also nicht in einen Zustand bringen, den ein
+    Benutzer nicht auch von Hand herstellen könnte.
+    """
+    path = os.path.join(os.path.dirname(__file__), "static_data", "stories.json")
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def glossary() -> List[Dict]:

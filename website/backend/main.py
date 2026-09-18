@@ -94,10 +94,18 @@ async def api_merit_order(
 
 @app.get("/api/simulate")
 async def api_simulate(
-    wind_gw: float = Query(anl.DEFAULTS["wind_gw"]),
-    solar_gw: float = Query(anl.DEFAULTS["solar_gw"]),
-    co2_price: float = Query(anl.DEFAULTS["co2_price"]),
-    gas_price: float = Query(anl.DEFAULTS["gas_price"]),
+    wind_gw: Optional[float] = Query(
+        None, description="Installierte Windleistung in GW. Nicht gesetzt heißt bei "
+                          "echten Daten: Es gilt der tatsächliche Ausbaustand."),
+    solar_gw: Optional[float] = Query(
+        None, description="Installierte PV-Leistung in GW. Nicht gesetzt heißt bei "
+                          "echten Daten: Es gilt der tatsächliche Ausbaustand."),
+    co2_price: Optional[float] = Query(
+        None, description="CO₂-Preis in €/t. Nicht gesetzt heißt bei echten Daten: "
+                          "Es gilt der gemessene Monatswert."),
+    gas_price: Optional[float] = Query(
+        None, description="Gaspreis in €/MWh thermisch. Nicht gesetzt heißt bei "
+                          "echten Daten: Es gilt der gemessene Monatswert."),
     peak_load_gw: Optional[float] = Query(
         None, description="Höchstlast in GW. Bei echten Daten wird die gemessene "
                           "Lastkurve nur dann gestreckt, wenn dieser Wert gesetzt ist."),
@@ -106,11 +114,16 @@ async def api_simulate(
     source: str = Query(anl.DEFAULTS["source"],
                         description="synthetic = erzeugte Profile, historical = SMARD-Messwerte"),
     start: Optional[str] = Query(None, description="Startdatum JJJJ-MM-TT, nur bei source=historical"),
+    min_load: Optional[bool] = Query(
+        None, description="Mindestlast der thermischen Blöcke berücksichtigen. "
+                          "Standardmäßig aus — der Effekt ist real, verschlechtert "
+                          "aber die Treffgenauigkeit; siehe README."),
 ):
     """Stündlicher Kraftwerkseinsatz, Börsenpreis und Kennzahlen."""
     try:
         return JSONResponse(anl.simulate(wind_gw, solar_gw, co2_price, gas_price,
-                                         peak_load_gw, hours, season, source, start))
+                                         peak_load_gw, hours, season, source, start,
+                                         min_load))
     except sources.InsufficientData as error:
         # Lieber ein klarer Hinweis als stillschweigend erzeugte Profile —
         # sonst hält man Modellzahlen für Messwerte.
@@ -161,6 +174,12 @@ async def api_day_profiles(season: Optional[str] = Query(None)):
         "seasons": {key: cfg["label"] for key, cfg in profiles.SEASONS.items()},
         "selected_season": season if season in profiles.SEASONS else profiles.DEFAULT_SEASON,
     })
+
+
+@app.get("/api/stories")
+async def api_stories():
+    """Geführte Fragen mit fertigen Parametersätzen für die Analyseseite."""
+    return JSONResponse(anl.stories())
 
 
 @app.get("/api/glossary")

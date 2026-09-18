@@ -1,0 +1,263 @@
+[
+  {
+    "id": "negative-preise",
+    "title": "Warum Strom mittags manchmal verschenkt wird",
+    "question": "Wie kann ein Preis unter null entstehen — wer zahlt dafür, Strom loszuwerden?",
+    "lead": "Negative Börsenpreise wirken wie ein Fehler im System. Sie sind aber die logische Folge davon, wie geboten wird — und sie kommen mit dem Ausbau von selbst.",
+    "steps": [
+      {
+        "label": "60 GW Photovoltaik",
+        "params": {
+          "source": "synthetic",
+          "season": "sommer",
+          "hours": 72,
+          "wind_gw": 70,
+          "solar_gw": 60
+        },
+        "text": "So stand die deutsche Photovoltaik ungefähr im Jahr 2022. Mittags decken Wind und Sonne einen großen Teil der Last, der Preis fällt deutlich — aber er bleibt über null, und abgeregelt werden muss nichts.",
+        "watch": "Die Mittagsdellen in der Preiskurve sind schon deutlich. „Negative Preise“ und „Abgeregelt“ stehen bei null.",
+        "expect": {
+          "negative_price_hours": 0,
+          "curtailed_gwh": 0
+        }
+      },
+      {
+        "label": "90 GW — der heutige Stand",
+        "params": {
+          "source": "synthetic",
+          "season": "sommer",
+          "hours": 72,
+          "wind_gw": 70,
+          "solar_gw": 90
+        },
+        "text": "Ein Drittel mehr Leistung, und die Einspeisung übersteigt mittags die Last. Irgendjemand muss abregeln — und die Anlagen, die dafür in Frage kommen, bekommen eine Einspeisevergütung. Für sie lohnt der Weiterbetrieb auch dann noch, wenn sie am Markt draufzahlen. Genau deshalb bieten sie unter null, und genau deshalb fällt der Preis unter null.",
+        "watch": "Aus null negativen Stunden sind einige geworden, und „Abgeregelt“ steht nicht mehr bei null.",
+        "expect": {
+          "negative_price_hours": {
+            "min": 5
+          },
+          "curtailed_gwh": {
+            "min": 20
+          }
+        }
+      },
+      {
+        "label": "200 GW — doppelt so viel wie heute",
+        "params": {
+          "source": "synthetic",
+          "season": "sommer",
+          "hours": 72,
+          "wind_gw": 70,
+          "solar_gw": 200
+        },
+        "text": "Jetzt ist der mittlere Preis über drei Sommertage selbst negativ. Das ist keine Vorhersage, sondern eine Rechnung über den heutigen Kraftwerkspark: Wer nur zubaut, ohne die Nachfrage zu verschieben oder zu speichern, verschenkt einen wachsenden Teil der Erzeugung.",
+        "watch": "Die abgeregelte Energie ist um ein Vielfaches gestiegen — deutlich stärker als die zugebaute Leistung.",
+        "expect": {
+          "mean_price": {
+            "max": 0
+          },
+          "curtailed_gwh": {
+            "min": 1000
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "co2-preis",
+    "title": "Was der CO₂-Preis mit der Kohle macht",
+    "question": "Warum trifft ein Zertifikatspreis die Braunkohle härter als das Gaskraftwerk?",
+    "lead": "Ein CO₂-Preis verteuert jede fossile Kilowattstunde — aber nicht gleichmäßig. Die Reihenfolge im Markt kann sich dadurch umdrehen.",
+    "steps": [
+      {
+        "label": "Ohne CO₂-Preis",
+        "params": {
+          "source": "synthetic",
+          "season": "winter",
+          "hours": 72,
+          "co2_price": 0
+        },
+        "text": "Braunkohle ist mit Abstand am billigsten: Der Brennstoff kostet rund 4 Euro je Megawattstunde Wärme, weil er im Tagebau direkt neben dem Kraftwerk liegt. Gas ist teuer.",
+        "watch": "In der Merit-Order steht Braunkohle links von Steinkohle, und beide stehen links von Gas.",
+        "expect": {
+          "merit_order": [
+            "braunkohle",
+            "steinkohle",
+            "gud"
+          ]
+        }
+      },
+      {
+        "label": "60 Euro je Tonne",
+        "params": {
+          "source": "synthetic",
+          "season": "winter",
+          "hours": 72,
+          "co2_price": 60
+        },
+        "text": "Braunkohle stößt je erzeugter Megawattstunde rund dreimal so viel CO₂ aus wie ein modernes Gaskraftwerk — schlechterer Wirkungsgrad und schmutzigerer Brennstoff wirken zusammen. Der Aufschlag trifft sie deshalb dreifach. Gas hat die Steinkohle hier schon eingeholt: 85 gegen 86 Euro in der Mitte der jeweiligen Gebotsspanne.",
+        "watch": "Die Balken in der Merit-Order rücken zusammen. Braunkohle führt noch, aber der Abstand schrumpft.",
+        "expect": {
+          "merit_order": [
+            "braunkohle",
+            "steinkohle",
+            "gud"
+          ]
+        }
+      },
+      {
+        "label": "150 Euro je Tonne",
+        "params": {
+          "source": "synthetic",
+          "season": "winter",
+          "hours": 72,
+          "co2_price": 150
+        },
+        "text": "Die Reihenfolge ist umgedreht: Gas läuft vor beiden Kohlen, Braunkohle steht ganz hinten. Das ist der ganze Mechanismus des Emissionshandels — er verbietet nichts, er macht das Schmutzige teurer als das Saubere und lässt die Merit-Order den Rest erledigen.",
+        "watch": "Der CO₂-Ausstoß in den Kennzahlen ist um gut vierzig Prozent gesunken, der Preis deutlich gestiegen. Beides gehört zusammen.",
+        "expect": {
+          "merit_order": [
+            "gud",
+            "steinkohle",
+            "braunkohle"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "gaskrise",
+    "title": "Warum Strom 2023 so teuer war",
+    "question": "War es der Atomausstieg, der Kohleausstieg — oder etwas anderes?",
+    "lead": "Derselbe Kraftwerkspark, zwei Aprilmonate. Der Unterschied steckt fast vollständig an einer einzigen Stelle.",
+    "steps": [
+      {
+        "label": "April 2023",
+        "params": {
+          "source": "historical",
+          "start": "2023-04-06",
+          "hours": 168
+        },
+        "text": "Gas kostete in diesem Monat rund 42 Euro je Megawattstunde Wärme — Nachwehen der Gaskrise. Weil das Gaskraftwerk in vielen Stunden den Preis setzt, schlägt das fast eins zu eins auf den Strompreis durch.",
+        "watch": "In der Herkunftszeile unter dem Formular steht, mit welchen Brennstoffpreisen gerechnet wurde."
+      },
+      {
+        "label": "April 2024",
+        "params": {
+          "source": "historical",
+          "start": "2024-04-06",
+          "hours": 168
+        },
+        "text": "Ein Jahr später kostet dasselbe Gas rund 29 Euro, das Zertifikat 64 statt 90 Euro. Der Kraftwerkspark im Modell ist unverändert, das Wetter ist ein anderes — der mittlere Preis liegt rund fünfzehn Euro tiefer.",
+        "watch": "Merke dir dieses Szenario („Szenario merken“) und geh dann zum nächsten Schritt. Dann stehen beide Kennzahlensätze nebeneinander."
+      },
+      {
+        "label": "Die Gegenprobe",
+        "params": {
+          "source": "historical",
+          "start": "2023-04-06",
+          "hours": 168,
+          "gas_price": 29,
+          "co2_price": 64
+        },
+        "text": "Hier läuft der April 2023 noch einmal — mit dem Wetter und der Last von 2023, aber den Brennstoffpreisen von 2024. Der Preis fällt sogar etwas unter das Niveau von April 2024: Das Wetter von 2023 war in dieser Woche geringfügig günstiger. Die Antwort auf die Ausgangsfrage ist damit klar — es lag am Brennstoff, nicht am Kraftwerkspark.",
+        "watch": "Der mittlere Börsenpreis liegt nun nah am April 2024, obwohl Last und Wetter die von 2023 sind."
+      }
+    ]
+  },
+  {
+    "id": "mehr-wind",
+    "title": "Was wäre, wenn schon doppelt so viel Wind stünde?",
+    "question": "Wie weit trägt ein Ausbau, der heute noch nicht da ist — an echtem Wetter gerechnet?",
+    "lead": "Das Modell rechnet nicht mit fertiger Einspeisung, sondern mit Kapazitätsfaktoren. Deshalb lässt sich ein echtes Wetterjahr auf jeden beliebigen Ausbaustand umrechnen.",
+    "steps": [
+      {
+        "label": "Eine Januarwoche, heutiger Ausbau",
+        "params": {
+          "source": "historical",
+          "start": "2025-01-06",
+          "hours": 168,
+          "wind_gw": 70,
+          "solar_gw": 90
+        },
+        "text": "Im Winter trägt die Photovoltaik wenig, der Wind trägt viel — aber unregelmäßig. In den windarmen Stunden läuft der ganze fossile Park, und der Preis steigt entsprechend.",
+        "watch": "Die Lücken im Winddargebot im Erzeugungsdiagramm. Genau dort schlägt die Preiskurve nach oben aus."
+      },
+      {
+        "label": "Doppelt so viel Wind",
+        "params": {
+          "source": "historical",
+          "start": "2025-01-06",
+          "hours": 168,
+          "wind_gw": 140,
+          "solar_gw": 90
+        },
+        "text": "Dasselbe Wetter, doppelte Leistung. Der mittlere Preis fällt um fast zwei Drittel — die teuersten zehn Prozent der Stunden aber nur um etwa ein Fünftel. Das ist die eigentliche Auskunft: Zubau senkt den Durchschnitt stark und die Spitzen kaum, denn doppelt wenig Wind ist immer noch wenig.",
+        "watch": "Der Erneuerbaren-Anteil springt nach oben. Die höchsten Ausschläge der Preiskurve bleiben trotzdem stehen.",
+        "expect": {
+          "renewable_share": {
+            "min": 85
+          }
+        }
+      },
+      {
+        "label": "Und die Last steigt mit",
+        "params": {
+          "source": "historical",
+          "start": "2025-01-06",
+          "hours": 168,
+          "wind_gw": 140,
+          "solar_gw": 90,
+          "peak_load_gw": 95,
+          "scale_load": true
+        },
+        "text": "Wärmepumpen und Elektroautos heben die Last. Die gemessene Kurve wird auf eine höhere Spitze gestreckt, ihre Form bleibt. Der Zubau, der eben noch komfortabel wirkte, reicht in den Spitzenstunden nicht mehr — dort liegt der Preis nun höher als im ersten Schritt, mit halb so viel Wind.",
+        "watch": "Der Erneuerbaren-Anteil fällt wieder, obwohl kein Windrad abgebaut wurde.",
+        "expect": {
+          "renewable_share": {
+            "max": 88
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "modell-und-wirklichkeit",
+    "title": "Wie gut ist dieses Modell überhaupt?",
+    "question": "Kann man einem Kraftwerkspark aus sieben Blöcken glauben?",
+    "lead": "Bei echten Messwerten steht der gerechnete Preis neben dem tatsächlich gezahlten. Das ist der ehrlichste Teil der Seite.",
+    "steps": [
+      {
+        "label": "Eine Juliwoche 2023",
+        "params": {
+          "source": "historical",
+          "start": "2023-07-06",
+          "hours": 168
+        },
+        "text": "Unter den Diagrammen stehen drei Zahlen: die mittlere Abweichung, die Verzerrung (rechnet das Modell systematisch zu hoch oder zu tief?) und die Korrelation (stimmt wenigstens der Verlauf?). Hier liegt die Korrelation bei knapp 0,9, die mittlere Abweichung trotzdem bei rund 17 Euro je Megawattstunde.",
+        "watch": "Beides gleichzeitig ist typisch: Das Modell trifft den Rhythmus der Woche gut und das Niveau der einzelnen Stunde schlecht. Achte auch auf die Windleistung im Formular — sie steht auf dem Wert, der in dieser Woche wirklich installiert war.",
+        "expect": {
+          "validation_mae": {
+            "max": 20
+          }
+        }
+      },
+      {
+        "label": "Mindestlast einschalten",
+        "params": {
+          "source": "historical",
+          "start": "2023-07-06",
+          "hours": 168,
+          "min_load": true
+        },
+        "text": "Ein Kohleblock, der nachts durchläuft, um morgens nicht neu anfahren zu müssen, bietet auch bei negativen Preisen an. Das ist real und an den Daten gemessen — und trotzdem wird das Modell damit deutlich schlechter: Die Abweichung wächst um rund zwölf Euro, die Korrelation fällt von 0,89 auf 0,74.",
+        "watch": "Ein realistischerer Baustein muss kein besseres Modell ergeben. Meist heißt das, dass an anderer Stelle etwas nicht stimmt — hier vermutlich ein zu groß angesetzter Kraftwerkspark.",
+        "expect": {
+          "validation_mae": {
+            "min": 25
+          }
+        }
+      }
+    ]
+  }
+]

@@ -150,10 +150,32 @@ class MeritOrderStructureTest(unittest.TestCase):
             self.assertLess(by_id[block_id]["cost_low"], 0.0, block_id)
         self.assertLess(by_id["solar"]["cost_low"], by_id["wind"]["cost_low"])
 
-    def test_erneuerbare_stehen_am_anfang_der_merit_order(self):
-        günstigste = [b["id"] for b in self.blocks[:4]]
-        self.assertIn("wind", günstigste)
-        self.assertIn("solar", günstigste)
+    def test_erneuerbare_stehen_vor_jedem_brennstoffgebot(self):
+        """Wind und PV bieten unter jedem Block, der zu Grenzkosten anbietet.
+
+        Nicht unter *jedem* Block: Ist die Mindestlast eingeschaltet, liegt
+        dieser Teil der thermischen Blöcke noch unter dem Windgebot. Das ist
+        gewollt — ein Braunkohleblock, der nachts durchläuft, um morgens nicht
+        neu anfahren zu müssen, bietet tiefer als eine Windanlage, die einfach
+        stehenbleiben kann.
+        """
+        reihenfolge = [b["id"] for b in self.blocks]
+        zu_grenzkosten = [b["id"] for b in self.blocks
+                          if b["kind"] == "thermal" and not b["id"].endswith("_mindestlast")]
+        self.assertTrue(zu_grenzkosten)
+        for block_id in ("wind", "solar"):
+            for thermisch in zu_grenzkosten:
+                self.assertLess(reihenfolge.index(block_id), reihenfolge.index(thermisch),
+                                "%s müsste vor %s stehen" % (block_id, thermisch))
+
+    def test_mindestlast_steht_noch_vor_dem_wind(self):
+        blocks = anl.merit_order(co2_price=80.0, gas_price=32.0,
+                                 wind_gw=70.0, solar_gw=90.0, min_load=True)
+        reihenfolge = [b["id"] for b in blocks]
+        mindestlast = [b["id"] for b in blocks if b["id"].endswith("_mindestlast")]
+        self.assertTrue(mindestlast, "Kein Mindestlastblock vorhanden")
+        for block_id in mindestlast:
+            self.assertLess(reihenfolge.index(block_id), reihenfolge.index("wind"), block_id)
 
     def test_installierte_leistung_wird_uebernommen(self):
         by_id = {b["id"]: b for b in self.blocks}

@@ -28,16 +28,28 @@ export class MissingData extends Error {
  * deshalb nur mitgeschickt, wenn ausdrücklich das Strecken gewünscht ist —
  * sonst hielte man eine skalierte Kurve für eine gemessene. Die Jahreszeit
  * gehört umgekehrt nur zu den erzeugten Profilen.
+ *
+ * Dasselbe gilt für Ausbau und Brennstoffpreise: Solange die Werte des
+ * Zeitraums gewünscht sind, dürfen diese vier Regler gar nicht mitgeschickt
+ * werden. Ein mitgesendeter Wert ist für das Backend nicht von einer Eingabe zu
+ * unterscheiden — er würde die gemessenen Werte stillschweigend verdrängen, und
+ * niemand sähe, warum das Frühjahr 2023 zu billig herauskommt oder warum mit
+ * 90 statt 101 Gigawatt Photovoltaik gerechnet wird.
  */
 export function readParams(form) {
   const data = new FormData(form);
   const source = data.get("source") === HISTORICAL ? HISTORICAL : SYNTHETIC;
   const params = { source };
 
-  for (const key of ["wind_gw", "solar_gw", "co2_price", "gas_price", "hours"]) {
+  const realwerte = source === HISTORICAL && Boolean(data.get("real_values"));
+  const regler = realwerte
+    ? ["hours"]
+    : ["wind_gw", "solar_gw", "co2_price", "gas_price", "hours"];
+  for (const key of regler) {
     const value = data.get(key);
     if (value !== null) params[key] = value;
   }
+  if (data.get("min_load")) params.min_load = "true";
 
   if (source === HISTORICAL) {
     if (data.get("start")) params.start = data.get("start");
@@ -110,7 +122,69 @@ export function buildDataNote(result) {
   if (meta.load_scaled_by) {
     parts.push(`Die gemessene Last wurde mit Faktor ${fmt.plain(meta.load_scaled_by, 2)} gestreckt.`);
   }
+  const brennstoff = buildFuelNote(result);
+  if (brennstoff) parts.push(brennstoff);
   return parts.join(" ");
+}
+
+/**
+ * Womit gerechnet wurde: gemessene Monatspreise oder eingestellte Werte.
+ *
+ * Das gehört sichtbar gemacht, weil sonst niemand erklären kann, warum
+ * derselbe Kraftwerkspark im Frühjahr 2023 andere Preise liefert als 2024 —
+ * der Unterschied steckt im Gaspreis, nicht im Modell.
+ */
+export function buildFuelNote(result) {
+  const fuel = result && result.fuel_costs;
+  if (!fuel) return "";
+  const monate = Object.entries(fuel.months || {})
+    .filter(([, werte]) => werte.origin === "historical");
+  if (!monate.length) {
+    return "Brennstoff- und CO₂-Preise: die eingestellten Werte.";
+  }
+  // Nur nennen, was wirklich gemessen ist. Ein Reglerwert als „Preis des
+  // Zeitraums" auszugeben wäre die schlimmere Sorte Fehler: nicht falsch
+  // gerechnet, aber falsch behauptet.
+  const beschreibung = monate.map(([monat, werte]) => {
+    const herkunft = werte.used || {};
+    const teile = [];
+    if (herkunft.co2_price === "historical") teile.push(`CO₂ ${fmt.plain(werte.co2_price, 0)} €/t`);
+    if (herkunft.gas_price === "historical") teile.push(`Gas ${fmt.plain(werte.gas_price, 0)} €/MWh`);
+    return teile.length ? `${monat}: ${teile.join(", ")}` : "";
+  }).filter(Boolean);
+  if (!beschreibung.length) return "Brennstoff- und CO₂-Preise: die eingestellten Werte.";
+
+  const fortgeschrieben = monate.flatMap(([, werte]) =>
+    Object.entries(werte.carried_forward || {})
+      .filter(([feld]) => (werte.used || {})[feld] === "historical")
+      .map(([feld, herkunftsmonat]) =>
+        `${feld === "gas_price" ? "Gas" : feld === "co2_price" ? "CO₂" : "Kohle"} aus ${herkunftsmonat}`));
+
+  let text = `Brennstoffpreise des Zeitraums (${beschreibung.join("; ")}). ` +
+             `Ein bewegter Regler gilt dennoch vor.`;
+  if (fortgeschrieben.length) {
+    text += ` Fortgeschrieben, weil die Quelle noch nicht so weit reicht: ` +
+            `${[...new Set(fortgeschrieben)].join(", ")}.`;
+  }
+  return text;
+}
+
+/**
+ * Was der Außenhandel im Zeitraum bewirkt hat.
+ *
+ * Wichtig für das Verständnis: Das Modell rechnet den Handel nicht als
+ * gegebene Menge, sondern als preisabhängige Nachfrage. Die Nachbarn kaufen,
+ * wenn Deutschland billig ist. Andersherum — den gemessenen Export als feste
+ * Nachfrage einzusetzen — dreht die Ursache um und macht das Modell schlechter.
+ */
+export function buildTradeNote(result) {
+  const kpis = (result && result.kpis) || {};
+  if (kpis.net_export_gwh == null) return "";
+  if (!kpis.export_hours && !kpis.import_hours) return "";
+  const richtung = kpis.net_export_gwh >= 0 ? "ausgeführt" : "eingeführt";
+  return `Außenhandel: ${fmt.plain(Math.abs(kpis.net_export_gwh), 0)} GWh netto ${richtung} ` +
+         `(${kpis.export_hours} Export-, ${kpis.import_hours} Importstunden). ` +
+         `Gerechnet als preisabhängige Nachfrage — die Nachbarn kaufen, wenn es hier billig ist.`;
 }
 
 /** Statuszeile unter dem Formular. */
@@ -128,6 +202,16 @@ export function restoreFromUrl(form, search) {
   const query = new URLSearchParams(search);
   const keys = ["source", "start", "wind_gw", "solar_gw", "co2_price", "gas_price",
                 "peak_load_gw", "hours", "season"];
+  // Ein mitgegebener Wert heißt: Der Regler war gewollt, nicht der Realwert.
+  const realwerte = form.elements.real_values;
+  const eigene = ["co2_price", "gas_price", "wind_gw", "solar_gw"];
+  if (realwerte && eigene.some((key) => query.has(key))) {
+    realwerte.checked = false;
+  }
+  const mindestlast = form.elements.min_load;
+  if (mindestlast && query.has("min_load")) {
+    mindestlast.checked = query.get("min_load") !== "false";
+  }
   for (const key of keys) {
     const value = query.get(key);
     const field = form.elements[key];
@@ -165,8 +249,19 @@ export function buildValidationNote(result) {
     : v.correlation > 0.2 ? "trifft den Verlauf nur schwach"
     : "trifft den Verlauf nicht";
 
+  // Ein Szenario, das eine andere Welt rechnet, darf seine Abweichung nicht als
+  // Modellgüte ausgeben. Wer die Windleistung verdoppelt, bekommt eine mittlere
+  // Abweichung von 59 €/MWh — das misst aber nicht das Modell, sondern den
+  // Unterschied zwischen 140 und 73 Gigawatt.
+  const anders = (v.counterfactual || []);
+  const warnung = anders.length ? `
+    <p class="validation-warning"><strong>Achtung:</strong> Dieses Szenario bildet nicht
+    ab, was in diesem Zeitraum wirklich war — ${anders.join(", ")}. Die Zahlen unten
+    messen deshalb nicht die Güte des Modells, sondern den Abstand zwischen dieser
+    Rechnung und dem, was tatsächlich passiert ist.</p>` : "";
+
   return `
-    <strong>Modell gegen Wirklichkeit</strong>
+    <strong>Modell gegen Wirklichkeit</strong>${warnung}
     <dl class="validation-grid">
       <div><dt>Modell im Mittel</dt><dd>${zahl(v.mean_model)} €/MWh</dd></div>
       <div><dt>tatsächlich</dt><dd>${zahl(v.mean_actual)} €/MWh</dd></div>

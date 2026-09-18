@@ -13,6 +13,16 @@
   <p class="data-note" id="data-note" hidden></p>
 </div>
 
+<section class="stories" id="stories" aria-labelledby="stories-head">
+  <div class="stories-head">
+    <h2 id="stories-head">Womit anfangen?</h2>
+    <p class="small muted">Fünf Fragen, die dieses Modell beantworten kann. Jede führt in
+      wenigen Schritten durch die Antwort und stellt die Regler dafür selbst ein.</p>
+  </div>
+  <div id="story-list"></div>
+  <div class="story-panel" id="story-panel" hidden></div>
+</section>
+
 <form class="controls" id="sim-form" aria-label="Parameter der Simulation">
   <div class="controls-grid">
     <div class="field">
@@ -28,6 +38,13 @@
       <label for="start">Beginn</label>
       <input type="date" id="start" name="start">
       <span class="hint" id="start-hint">Tag, an dem der Zeitraum beginnt</span>
+      <label class="check">
+        <input type="checkbox" id="real_values" name="real_values" checked>
+        Ausbau und Brennstoffpreise des Zeitraums übernehmen
+      </label>
+      <span class="hint">Die vier Regler darunter zeigen dann, was damals wirklich
+        stand und kostete. Wer einen davon bewegt, rechnet eine andere Welt durch —
+        das Häkchen geht dabei von selbst weg.</span>
     </div>
 
     <div class="field">
@@ -64,6 +81,15 @@
         <span class="range-value" data-for="gas_price" aria-hidden="true"></span>
       </div>
       <span class="hint">€/MWh thermisch — 2022 zeitweise über 200</span>
+    </div>
+
+    <div class="field">
+      <label class="check">
+        <input type="checkbox" id="min_load" name="min_load">
+        Mindestlast der Kohle- und Gasblöcke berücksichtigen
+      </label>
+      <span class="hint">Ein Teil jedes Blocks bleibt im Markt, statt abzufahren —
+        real, aber das Modell trifft damit schlechter. Siehe README.</span>
     </div>
 
     <div class="field">
@@ -104,9 +130,19 @@
   <div class="controls-actions">
     <button class="btn btn-primary" type="submit">Neu berechnen</button>
     <button class="btn btn-secondary" type="reset">Zurücksetzen</button>
+    <button class="btn btn-secondary" type="button" id="pin-scenario">Szenario merken</button>
     <span class="status" id="sim-status" role="status">Berechne ...</span>
   </div>
 </form>
+
+<section class="diff-box" id="diff-box" hidden aria-labelledby="diff-head">
+  <div class="diff-head">
+    <h2 id="diff-head">Zwei Szenarien nebeneinander</h2>
+    <button class="btn btn-secondary" type="button" id="unpin-scenario">Vergleich beenden</button>
+  </div>
+  <div id="diff-note"></div>
+  <div class="table-scroll" id="diff-table"></div>
+</section>
 
 <div class="kpi-row" id="kpi-row"></div>
 
@@ -143,10 +179,13 @@
     gedeckt; der Preis ist der des letzten eingesetzten Blocks.
   </p>
   <p>
-    Nicht abgebildet sind Speicher, Import und Export, Mindestlasten, An- und Abfahrkosten,
-    Kraft-Wärme-Kopplung sowie Netzengpässe. Die Wetterprofile sind synthetisch, aber in
-    Niveau und Tagesgang an deutsche Verhältnisse angelehnt. Die Ergebnisse sind
-    Größenordnungen zum Verstehen der Mechanik — keine Prognose.
+    Abgebildet sind inzwischen auch Speicher, der Außenhandel als preisabhängige Nachfrage,
+    ein Knappheitsaufschlag bei knapper Reserve und — abschaltbar — die Mindestlast der
+    thermischen Blöcke. Nicht abgebildet sind An- und Abfahrkosten im Einzelnen,
+    Kraft-Wärme-Kopplung, Reservemärkte und Netzengpässe innerhalb Deutschlands. Die
+    Wetterprofile der erzeugten Variante sind synthetisch, aber in Niveau und Tagesgang an
+    deutsche Verhältnisse angelehnt. Die Ergebnisse sind Größenordnungen zum Verstehen der
+    Mechanik — keine Prognose.
   </p>
   <p>
     Bei <strong>echten Messwerten</strong> stammen Last, Wind- und Solareinspeisung von

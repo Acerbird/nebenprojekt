@@ -173,6 +173,174 @@ von 0,64 auf 0,68.
 Die Wirkungsgrad-Bandbreiten und Gebotsuntergrenzen stammen aus `tech_params.csv`
 des Forschungsprojekts *Forecasting Electricity Prices* (S. Hellbusch).
 
+### Mindestlast: real, und trotzdem abgeschaltet
+
+Ein Braunkohleblock lässt sich nicht beliebig weit herunterfahren, und ihn ganz
+abzustellen kostet Stunden und Geld. Solange der Verlust je Stunde kleiner ist
+als ein Neustart, bleibt er im Markt und nimmt dafür auch einen negativen Preis
+hin. Genau daraus entstehen die Stunden, in denen der Börsenpreis unter null
+fällt und trotzdem Kohle im Netz ist.
+
+Im Modell bietet deshalb ein Teil jedes thermischen Blocks getrennt an, zu
+−80 bis −20 €/MWh statt zu seinen Grenzkosten. Wie groß dieser Teil ist, ist
+nicht geschätzt, sondern an SMARD gemessen — in den 1.802 Stunden mit negativem
+Day-Ahead-Preis zwischen Dezember 2022 und September 2026:
+
+| Technologie | Erzeugung im Median | Parkgröße | Anteil |
+|---|---|---|---|
+| Braunkohle | 3,18 GW | 15 GW | 0,21 |
+| Steinkohle | 0,90 GW | 13 GW | 0,07 |
+| Erdgas | 2,09 GW | 20 GW (GuD) | 0,10 |
+
+Bei Erdgas hängt der Rest vor allem an der Fernwärmeauskopplung, deshalb ist er
+dem GuD-Park zugeordnet und nicht den Gasturbinen: Die lassen sich in Minuten
+starten und haben keinen Grund durchzulaufen.
+
+Unterhalb von −80 €/MWh lohnt auch das Durchhalten nicht mehr, dann fährt auch
+die Mindestlast ab. Ohne diese Grenze liefe die Kohle im Modell bis −500 weiter.
+
+**Und dann wird das Modell damit schlechter.** Über 24 Wochen quer durch drei
+Jahre, bei sonst gleichem Modell:
+
+| | MAE | Korrelation | Verzerrung |
+|---|---|---|---|
+| mit Mindestlast | 23,52 | 0,702 | −8,41 |
+| ohne | **19,76** | **0,795** | **−0,13** |
+
+Die naheliegende Erklärung wäre eine Doppelzählung: Mindestlast und die sehr
+tiefen Gebote der Erneuerbaren erklären beide, warum der Preis im Überschuss
+nicht ins Bodenlose fällt. Das ist geprüft und stimmt nicht — hebt man die
+EE-Gebote von −500 auf −60 an, ändert sich fast nichts (MAE 23,00 statt 23,52).
+Ein flacheres Mindestlastgebot hilft ebenso wenig (−40: MAE 23,19).
+
+Weshalb es schadet, ist damit offen. Der Verdacht liegt beim hinterlegten Park:
+Er ist womöglich zu groß, und zusätzliche billige Leistung am unteren Ende
+verschiebt die ganze Kurve. Das wäre ein Grund, den Park zu prüfen — nicht, den
+Effekt zu verschweigen. Deshalb bleibt die Mindestlast als Schalter erhalten
+(Kästchen im Formular, `min_load=true` an der API) und ist standardmäßig aus.
+
+### Außenhandel: die Ursache nicht umdrehen
+
+Deutschland ist keine Insel, und der erste Versuch, das abzubilden, ging
+gründlich schief — auf eine lehrreiche Weise. Naheliegend war, den von SMARD
+gemessenen Nettoexport als zusätzliche Nachfrage einzusetzen. Das Ergebnis war
+deutlich schlechter als vorher, und der Grund ist die Kausalität: Mittags
+exportiert Deutschland zwölf Gigawatt, **weil** der Preis bei −10 €/MWh liegt.
+Rechnet man diese zwölf Gigawatt als Nachfrage hinein, verschwindet der
+Überschuss, und das Modell sagt +80 statt −10.
+
+Richtig ist der Außenhandel eine **preisabhängige Nachfrage**. Die Kurve dafür
+ist gemessen, nicht angenommen: medianer Nettoexport je Preisklasse über 32.711
+Stunden (SMARD-Filter 4629 gegen den Day-Ahead-Preis derselben Stunde).
+
+| Preis (€/MWh) | medianer Nettoexport |
+|---|---|
+| unter −20 | +9,4 GW |
+| −20 bis 0 | +7,9 GW |
+| 0 bis 20 | +5,3 GW |
+| 20 bis 40 | +2,4 GW |
+| 40 bis 60 | +0,6 GW |
+| 60 bis 80 | −2,1 GW |
+| 80 bis 100 | −3,7 GW |
+| 100 bis 150 | −4,6 GW |
+| über 150 | −6,9 GW |
+
+Über den ganzen Bereich monoton fallend. Damit wirkt der Handel in beide
+Richtungen als Puffer: Im Überschuss saugt der Export ihn ab, statt den Preis
+ins Bodenlose fallen zu lassen; in der Knappheit entlastet der Import den
+heimischen Park. Die Markträumung sucht jetzt den Schnittpunkt zweier Kurven —
+das Angebot steigt mit dem Preis, die Nachfrage fällt.
+
+### Knappheitsaufschlag
+
+Ein reines Grenzkostenmodell nimmt an, dass jedes Kraftwerk zu seinen variablen
+Kosten bietet. Das stimmt, solange reichlich Leistung da ist. Wird es eng, weiß
+der letzte verfügbare Block, dass ohne ihn niemand liefert — und bietet darüber.
+
+Auch hier zuerst gemessen. Über 24 Wochen quer durch 2023 bis 2025, sortiert
+nach dem tatsächlichen Preis:
+
+| Ist-Preis (€/MWh) | mittlere Reserve | Modell ohne Aufschlag |
+|---|---|---|
+| unter 0 | 59 % | −13 |
+| 60 bis 90 | 48 % | 74 |
+| 90 bis 130 | 40 % | 88 |
+| 130 bis 200 | 31 % | 95 |
+| über 200 | 24 % | 106 |
+
+Die Reserve fällt selbst in den teuersten Stunden nie unter ein Fünftel. Eine
+Schwelle von zehn Prozent, wie sie zunächst naheliegt, hätte also nie gegriffen.
+Gewählt sind 40 % Schwelle und bis zu 120 €/MWh Aufschlag, linear mit der Enge
+wachsend — auf 2023/24 gesucht, an 2025 geprüft.
+
+Der Aufschlag steckt **in** der Markträumung, nicht dahinter. Würde er erst auf
+den geräumten Preis aufgeschlagen, gehörte die Handelsmenge zu einem anderen
+Preis als dem am Ende ausgewiesenen. Und er verändert nur den Zuschlagspreis,
+nicht den Einsatz: Wer läuft, entscheidet weiter der Preis ohne Aufschlag, denn
+der Aufschlag ist Knappheitsrente, kein Kostenblock.
+
+### Brennstoffpreise des jeweiligen Monats
+
+Ein fester Gaspreis von 32 €/MWh ist für einen Regler richtig — wer wissen will,
+was ein CO₂-Preis von 150 Euro anrichtet, soll ihn einstellen können. Für den
+Vergleich mit echten Preisen ist er falsch: Im Frühjahr 2023 kostete Gas das
+Doppelte, und das Modell rechnete entsprechend zu billig.
+
+Bei echten Messwerten gelten deshalb die Preise des jeweiligen Monats. Sie
+stehen in `static_data/fuel_prices.json` und werden außerhalb der Website
+gebaut:
+
+    python -m backend.data.fuel_ingest          Tabelle neu bauen
+    python -m backend.data.fuel_ingest --show   zeigen, was vorliegt
+
+Drei Quellen, alle ohne Anmeldung und ohne Lizenzvorbehalt:
+
+| Größe | Quelle |
+|---|---|
+| CO₂ | EEX, Zuschlagspreise der Auktionen im europäischen Emissionshandel |
+| Gas | Weltbank *Pink Sheet*, Reihe „Natural gas, Europe" (TTF), in USD/mmbtu |
+| Kohle | Weltbank ebenda, Reihe „Coal, South African", in USD/t |
+| Wechselkurs | EZB, Referenzkurs USD/EUR |
+
+Die XLSX-Dateien werden mit der Standardbibliothek gelesen — ein XLSX ist ein
+ZIP-Archiv mit XML darin, dafür braucht es keine Fremdbibliothek.
+
+Wie gut treffen die freien Quellen? Gegengeprüft an einer lizenzpflichtigen
+Terminpreisreihe, 72 Monate:
+
+| Größe | Korrelation | mittlere Abweichung |
+|---|---|---|
+| Gas | 0,9999 | 0,45 €/MWh |
+| CO₂ | 0,9995 | 0,45 €/t |
+| Kohle | 0,972 | 2,08 €/MWh_th |
+
+Bei Gas und CO₂ ist der Unterschied also vernachlässigbar. Bei Kohle nicht ganz:
+Südafrikanische Kohle ist ein Näherungswert für den europäischen Importpreis,
+Rotterdam (API 2) ist nicht frei zu haben.
+
+Braunkohle steht nicht in der Tabelle. Sie wird im Tagebau neben dem Kraftwerk
+gefördert und nicht gehandelt, ihr Preis ist keine Marktgröße und bleibt beim
+festen Wert.
+
+Ein bewegter Regler gilt immer vor dem gemessenen Wert — sonst ließe sich keine
+Was-wäre-wenn-Frage mehr stellen. Damit das Backend beides unterscheiden kann,
+schickt das Formular CO₂- und Gaspreis **gar nicht** mit, solange das Kästchen
+„stattdessen die Preise des Zeitraums verwenden" gesetzt ist. Ein mitgesendeter
+Wert ist von einer Eingabe nicht zu unterscheiden und würde die Monatswerte
+stillschweigend verdrängen.
+
+Womit gerechnet wurde, steht in der Herkunftszeile unter dem Formular — und
+zwar je Größe getrennt: Ein Reglerwert wird dort nicht als „Preis des Zeitraums"
+ausgegeben.
+
+Die beiden Quellen hinken unterschiedlich weit hinterher. Die CO₂-Auktionen
+laufen wöchentlich, die Weltbank-Tabelle erscheint mit einigen Monaten Verzug.
+Für den jüngsten Monat fehlt deshalb oft der Gaspreis — ausgerechnet für den
+Zeitraum, den die Seite ohne Zutun zeigt. Ein fehlender Wert wird daher aus dem
+jüngsten davorliegenden Monat fortgeschrieben, höchstens drei Monate weit und
+immer sichtbar vermerkt. Ohne diese Fortschreibung stünde dort der Vorgabewert
+von 32 €/MWh, während Gas zuletzt bei 62 lag.
+
 ### Speicher
 
 Batterien und Pumpspeicher laden in den billigsten Stunden und entladen in den
@@ -197,17 +365,45 @@ tatsächlich gezahlten Day-Ahead-Preis und weist drei Kennzahlen aus: die
 mittlere Abweichung, die Verzerrung (rechnet das Modell systematisch zu hoch
 oder zu tief?) und die Korrelation.
 
-Das Ergebnis ist unbequem und genau deshalb lehrreich. Für eine Septemberwoche
-2026 liegt die Korrelation bei etwa 0,68 — der Verlauf stimmt also grob —,
-während das Preisniveau um rund 99 €/MWh zu niedrig herauskommt. Ein höherer
-Gaspreis schließt die Lücke nicht, sondern verschlechtert die Korrelation. Der
-Grund liegt tiefer: Der hinterlegte Kraftwerkspark ist zu groß und zu billig,
-und Knappheitsaufschläge kennt das Modell nicht. Wer das Modell verbessern will,
-hat hier eine messbare Zielgröße.
+Als Maßstab dient ein fester Prüfsatz: 24 Wochen, jeweils der 6. eines Monats,
+quer durch 2023 bis 2025. Stand heute:
 
-Nicht abgebildet: Import und Export, Mindestlasten thermischer Blöcke, An- und
-Abfahrkosten, Kraft-Wärme-Kopplung, Netzengpässe. Die Ergebnisse sind
-Größenordnungen zum Verstehen der Mechanik — keine Prognose.
+| Jahr | MAE | Korrelation | Verzerrung |
+|---|---|---|---|
+| 2023 | 16,62 | 0,844 | −1,67 |
+| 2024 | 19,74 | 0,797 | +4,41 |
+| 2025 | 18,82 | 0,781 | −4,04 |
+| **gesamt** | **18,39** | **0,808** | **−0,43** |
+
+Zum Vergleich: Vor Außenhandel, Monatspreisen und Knappheitsaufschlag lagen
+dieselben 24 Wochen bei MAE 24,46, Korrelation 0,785 und einer Verzerrung von
+−7,26. Der Fehler ist also um ein Viertel gesunken, und die systematische
+Unterschätzung ist praktisch verschwunden — vor allem im Gaskrisenjahr 2023, wo
+sie vorher bei −20 lag.
+
+Der letzte Schritt dorthin war kein Modellbaustein, sondern eine veraltete Zahl:
+Die Voreinstellung von 90 GW Photovoltaik stammte aus einer Momentaufnahme, im
+Januar 2025 standen aber 101 GW. Seit unberührte Regler bei echten Messwerten
+den tatsächlichen Ausbaustand meinen (siehe unten), sank die mittlere Abweichung
+noch einmal von 19,76 auf 18,39.
+
+Was jedes Stück beiträgt, jeweils weggelassen aus dem vollständigen Modell:
+
+| weggelassen | MAE | Korrelation | Verzerrung |
+|---|---|---|---|
+| nichts (Vollmodell mit Mindestlast) | 23,52 | 0,702 | −8,41 |
+| Mindestlast | 19,76 | 0,795 | −0,13 |
+| Außenhandel | 28,24 | 0,677 | −4,70 |
+| Monatspreise | 25,93 | 0,709 | −9,13 |
+| Knappheitsaufschlag | 24,25 | 0,727 | −14,12 |
+
+Der Außenhandel trägt am meisten, die Mindestlast schadet (siehe oben).
+
+Nicht abgebildet: An- und Abfahrkosten im Einzelnen, Kraft-Wärme-Kopplung,
+Reservemärkte, Netzengpässe innerhalb Deutschlands. Auch der Außenhandel bleibt
+eine Verhaltenskurve — warum die Nachbarn gerade kaufen oder verkaufen, hinge an
+ihren eigenen Preisen, und dafür bräuchte es ein europäisches Modell. Die
+Ergebnisse sind Größenordnungen zum Verstehen der Mechanik — keine Prognose.
 
 ### Woher die Zeitreihen kommen
 
@@ -331,6 +527,97 @@ mitgelieferten Preise nicht zu den eigenen Messwerten passen.
 > werden darf, hängt außerdem am laufenden Publikationsverfahren des
 > Forschungsprojekts. Beides ist offen und muss entschieden sein, bevor diese
 > Seite online geht.
+
+### Regler, die die Wirklichkeit meinen
+
+Bei echten Messwerten stehen vier Regler standardmäßig auf dem, was in diesem
+Zeitraum wirklich war: Wind- und Solarleistung aus der interpolierten
+Ausbaureihe, CO₂- und Gaspreis aus der Monatstabelle. Das Formular schickt sie
+dann gar nicht erst mit — ein mitgesendeter Wert wäre für das Backend von einer
+Eingabe nicht zu unterscheiden. Nach der Antwort ziehen die Schieber auf die
+tatsächlich benutzten Werte nach, damit man sieht, womit gerechnet wurde.
+
+Wer einen dieser Regler bewegt, rechnet eine andere Welt durch. Das Häkchen geht
+dabei von selbst weg, und der Vergleich mit dem tatsächlich gezahlten Preis
+bekommt eine Warnung davor:
+
+> **Achtung:** Dieses Szenario bildet nicht ab, was in diesem Zeitraum wirklich
+> war — Wind 140 GW statt der tatsächlichen 73 GW. Die Zahlen unten messen
+> deshalb nicht die Güte des Modells, sondern den Abstand zwischen dieser
+> Rechnung und dem, was tatsächlich passiert ist.
+
+Ohne diesen Hinweis liest sich eine mittlere Abweichung von 59 €/MWh wie ein
+schlechtes Modell, obwohl sie nur bedeutet: In dieser Woche standen eben keine
+140 Gigawatt Wind. Als abweichend gilt ein Regler ab zehn Prozent Unterschied —
+darunter fallen Rundung und Interpolation der Ausbaureihe.
+
+## Geführte Geschichten
+
+Der Simulator beantwortet jede Frage, die man ihm stellt — aber er stellt keine.
+Wer zum ersten Mal auf acht Regler schaut, weiß nicht, an welchem er drehen
+soll. Die Geschichten liefern die Frage mit: Jeder Schritt setzt einen
+Parametersatz, erklärt ihn und sagt dazu, worauf im Diagramm zu achten ist.
+
+Sie liegen in `static_data/stories.json` und kommen über `/api/stories`. Eine
+Geschichte ist an jedem Schritt teilbar: `?story=co2-preis&schritt=2`.
+
+Fünf Stück, jede zwei bis drei Schritte lang:
+
+| Kennung | Frage |
+|---|---|
+| `negative-preise` | Wie kann ein Preis unter null entstehen? |
+| `co2-preis` | Warum trifft ein Zertifikatspreis die Braunkohle härter als das Gaskraftwerk? |
+| `gaskrise` | War Strom 2023 wegen des Atomausstiegs teuer — oder wegen etwas anderem? |
+| `mehr-wind` | Wie weit trägt ein Ausbau, den es heute noch nicht gibt? |
+| `modell-und-wirklichkeit` | Kann man einem Kraftwerkspark aus sieben Blöcken glauben? |
+
+### Behauptungen werden nachgerechnet
+
+Der wichtigste Teil daran ist ein Test. Jeder Schritt darf neben Text und
+Parametern ein Feld `expect` tragen, und `tests/test_stories.py` rechnet die
+Simulation und prüft die Behauptung nach:
+
+```json
+"text": "… und der Preis bleibt über null, abgeregelt werden muss nichts.",
+"expect": {"negative_price_hours": 0, "curtailed_gwh": 0}
+```
+
+Das ist keine Formsache. Beim ersten Schreiben dieser fünf Geschichten
+behaupteten vier von ihnen etwas, das nicht stimmte — ein Schritt versprach
+„der Preis bleibt über null", während er in siebzehn Stunden darunter lag; ein
+anderer sagte „die teuersten Stunden bleiben teuer", obwohl sie um ein Fünftel
+fielen. Solche Fehler fallen im Betrieb niemandem auf, weil trotzdem eine
+Simulation herauskommt und plausibel aussieht. Auf einer Lernseite sind sie das
+Schlimmste, was passieren kann.
+
+Prüfbar sind zurzeit `negative_price_hours`, `curtailed_gwh`, `mean_price`,
+`renewable_share`, `emissions_kt`, `validation_mae` — jeweils als fester Wert
+oder als `{"min": …}` / `{"max": …}` — sowie `merit_order` als erwartete
+Reihenfolge von Blöcken.
+
+## Zwei Szenarien nebeneinander
+
+Ein einzelnes Ergebnis beantwortet „was passiert?", nicht „was ändert sich
+dadurch?". Für die zweite Frage braucht es zwei Läufe. „Szenario merken" legt
+den aktuellen Lauf fest; jeder weitere wird daneben gestellt — Kennzahl für
+Kennzahl, mit absoluter und relativer Differenz.
+
+Zwei Entscheidungen dabei:
+
+* **Bewertet wird nur, wo die Richtung unstrittig ist.** Weniger CO₂ ist besser,
+  mehr Erneuerbare sind besser. Ob ein höherer Preis gut oder schlecht ist,
+  hängt davon ab, wen man fragt — dazu hat das Modell keine Meinung, und die
+  Zeile bleibt farblos.
+* **Die Preiskurven werden nur übereinandergelegt, wenn beide Läufe denselben
+  Zeitraum zeigen.** Sonst stünden zwei Kurven über einer x-Achse, die für eine
+  davon nicht gilt. Die Kennzahlen bleiben trotzdem vergleichbar, und ein
+  Hinweis sagt, warum nur eine Kurve zu sehen ist.
+
+Die Farbe der gemerkten Kurve (`--s-pinned`) ist nach demselben Verfahren
+gewählt wie die übrigen Serienfarben, siehe unten: Der kleinste Abstand zu den
+anderen Kurven des Preisdiagramms beträgt unter allen drei Dichromasien 13,2
+(hell) beziehungsweise 13,3 (dunkel) und liegt damit über dem, was die
+bestehenden Farben untereinander halten (10,5 und 7,2).
 
 ## Datenquellen
 

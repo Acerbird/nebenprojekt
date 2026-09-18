@@ -8,15 +8,31 @@
 import { renderChart, fmt, formatHour, DEFAULT_TIMEZONE } from "./charts.js";
 import {
   MissingData, applySourceVisibility, buildComparisonTable, buildDataNote,
-  buildStatusText, buildValidationNote, formatDate, hoursHintText, readParams,
-  restoreFromUrl, sourceHintText,
+  buildStatusText, buildTradeNote, buildValidationNote, formatDate, hoursHintText,
+  readParams, restoreFromUrl, sourceHintText,
 } from "./scenario.js";
+import {
+  applyStoryStep, buildStoryList, buildStoryPanel, findStory, readStoryFromUrl,
+} from "./stories.js";
+import { buildDiffNote, buildDiffTable, curvesComparable } from "./compare.js";
 
 const form = document.getElementById("sim-form");
 const statusLine = document.getElementById("sim-status");
 const kpiRow = document.getElementById("kpi-row");
 const dataNote = document.getElementById("data-note");
 const sourceHint = document.getElementById("source-hint");
+const storyList = document.getElementById("story-list");
+const storyPanel = document.getElementById("story-panel");
+const diffBox = document.getElementById("diff-box");
+
+/* Zustand, der nicht im Formular steht: die geöffnete Geschichte und das
+ * gemerkte Szenario. Beides bewusst nur im Arbeitsspeicher — ein gemerktes
+ * Szenario, das einen Seitenwechsel überlebt, wäre eine Überraschung. Die
+ * Geschichte steht dafür in der Adresszeile und ist so teilbar. */
+let stories = [];
+let openStory = null;
+let openStep = 0;
+let pinned = null;
 
 /** Kategorien tragen ihre Farbe als CSS-Variable — so folgt sie dem Farbschema. */
 const categoryColor = (id) => `var(--s-${id})`;
@@ -70,9 +86,40 @@ async function prepareDataRange() {
   }
 }
 
+/* Die vier Regler, die bei echten Messwerten aus dem Zeitraum kommen können. */
+const REALWERT_REGLER = ["wind_gw", "solar_gw", "co2_price", "gas_price"];
+
+/**
+ * Die Regler auf das nachziehen, womit wirklich gerechnet wurde.
+ *
+ * Sonst stünde am Schieber 90 GW, während das Modell mit 101 rechnet — und der
+ * Benutzer hätte keine Möglichkeit, den Unterschied zu bemerken. Der Regler
+ * zeigt so immer die Wirklichkeit, und wer ihn wegzieht, sieht wovon.
+ */
+function syncRealValues(result) {
+  const kasten = form.elements.real_values;
+  if (!kasten || !kasten.checked) return;
+  const p = result.params || {};
+  const monat = Object.values((result.fuel_costs || {}).months || {})[0] || {};
+  const benutzt = monat.used || {};
+  const uebernehmen = {
+    wind_gw: p.capacity_source === "historical",
+    solar_gw: p.capacity_source === "historical",
+    co2_price: benutzt.co2_price === "historical",
+    gas_price: benutzt.gas_price === "historical",
+  };
+  for (const name of REALWERT_REGLER) {
+    if (!uebernehmen[name] || p[name] == null) continue;
+    const feld = form.elements[name];
+    if (feld) feld.value = String(Math.round(p[name]));
+  }
+  bindRangeOutputs();
+}
+
 /** Herkunft der Zahlen sichtbar machen — und jede Anpassung des Zeitraums. */
 function renderDataNote(result) {
-  const text = buildDataNote(result);
+  const text = [buildDataNote(result), buildTradeNote(result)]
+    .filter(Boolean).join(" ");
   dataNote.textContent = text;
   dataNote.hidden = text === "";
 }
@@ -97,6 +144,11 @@ function renderKpis(result) {
             k.storage_discharged_gwh > 0
               ? `${fmt.plain(k.storage_losses_gwh, 0)} GWh Verluste`
               : "Preisabstand zu klein"),
+    ...(k.net_export_gwh == null || (!k.export_hours && !k.import_hours) ? [] : [
+      kpiTile(k.net_export_gwh >= 0 ? "Nettoexport" : "Nettoimport",
+              fmt.plain(Math.abs(k.net_export_gwh), 0), "GWh",
+              `${k.export_hours} h aus, ${k.import_hours} h ein`),
+    ]),
   ].join("");
 }
 
@@ -166,6 +218,15 @@ function renderPrice(result) {
       values: validation.actual_price_eur_mwh, dashed: true,
     });
   }
+  // Das gemerkte Szenario daneben — aber nur, wenn beide denselben Zeitraum
+  // zeigen. Zwei Kurven über einer x-Achse, die für eine davon nicht gilt,
+  // wären schlimmer als gar kein Vergleich.
+  if (curvesComparable(pinned, result)) {
+    series.push({
+      id: "pinned", label: "gemerktes Szenario", color: "var(--s-pinned, var(--ink-2))",
+      values: pinned.price_eur_mwh, dashed: true,
+    });
+  }
   // Vorberechnete Vorhersagen, sofern für diesen Zeitraum welche vorliegen.
   const forecasts = result.forecasts || {};
   Object.keys(forecasts).sort().forEach((model, index) => {
@@ -208,6 +269,79 @@ function renderValidation(result) {
   vergleich.hidden = tabelle === "";
 }
 
+/** Gemerktes und aktuelles Szenario nebeneinander. */
+function renderDiff(result) {
+  if (!diffBox) return;
+  const tabelle = pinned ? buildDiffTable(pinned, result) : "";
+  diffBox.hidden = tabelle === "";
+  if (!tabelle) return;
+  document.getElementById("diff-note").innerHTML = buildDiffNote(pinned, result);
+  document.getElementById("diff-table").innerHTML = tabelle;
+}
+
+/* ------------------------------------------------------------ Geschichten */
+
+function renderStories() {
+  if (!storyList) return;
+  storyList.innerHTML = buildStoryList(stories);
+  storyList.querySelectorAll("[data-story]").forEach((button) => {
+    button.addEventListener("click", () => openStoryAt(button.dataset.story, 0));
+  });
+}
+
+function renderStoryPanel() {
+  if (!storyPanel) return;
+  const markup = openStory ? buildStoryPanel(openStory, openStep) : "";
+  storyPanel.innerHTML = markup;
+  storyPanel.hidden = markup === "";
+  if (!markup) return;
+
+  storyPanel.querySelectorAll("[data-step]").forEach((button) => {
+    button.addEventListener("click", () => openStoryAt(openStory.id, Number(button.dataset.step)));
+  });
+  storyPanel.querySelector(".story-prev")
+    .addEventListener("click", () => openStoryAt(openStory.id, openStep - 1));
+  storyPanel.querySelector(".story-next")
+    .addEventListener("click", () => openStoryAt(openStory.id, openStep + 1));
+  storyPanel.querySelector(".story-close").addEventListener("click", closeStory);
+}
+
+/** Eine Geschichte an einem Schritt öffnen: Formular setzen, rechnen, anzeigen. */
+function openStoryAt(id, step) {
+  const story = findStory(stories, id);
+  if (!story) return;
+  const letzter = story.steps.length - 1;
+  openStory = story;
+  openStep = Math.max(0, Math.min(step, letzter));
+  applyStoryStep(form, story.steps[openStep]);
+  syncSourceFields();
+  bindRangeOutputs();
+  renderStoryPanel();
+  run();
+}
+
+function closeStory() {
+  openStory = null;
+  openStep = 0;
+  renderStoryPanel();
+  run();
+}
+
+/** Schritt und Geschichte gehören in die Adresszeile, damit beides teilbar ist. */
+function storyQuery() {
+  return openStory ? `&story=${openStory.id}&schritt=${openStep + 1}` : "";
+}
+
+async function loadStories() {
+  try {
+    stories = await fetch("/api/stories").then((r) => (r.ok ? r.json() : []));
+  } catch (error) {
+    stories = [];
+    console.error("Geschichten nicht abrufbar", error);
+  }
+  renderStories();
+}
+
 function setBusy(busy) {
   document.querySelectorAll(".chart").forEach((c) => { c.dataset.loading = String(busy); });
 }
@@ -238,13 +372,16 @@ async function run() {
     renderMeritOrder(merit, meanResidual);
     renderGeneration(simulation);
     renderPrice(simulation);
+    syncRealValues(simulation);
     renderDataNote(simulation);
     renderValidation(simulation);
+    renderDiff(simulation);
 
+    latest = simulation;
     statusLine.textContent = buildStatusText(simulation);
 
     // Szenario in der Adresszeile ablegen, damit es teilbar und neu ladbar ist.
-    history.replaceState(null, "", `?${query}`);
+    history.replaceState(null, "", `?${query}${storyQuery()}`);
   } catch (error) {
     statusLine.dataset.state = "error";
     statusLine.textContent = error instanceof MissingData
@@ -256,6 +393,7 @@ async function run() {
   }
 }
 
+let latest = null;
 let timer = null;
 form.addEventListener("input", () => {
   clearTimeout(timer);
@@ -266,7 +404,45 @@ form.addEventListener("reset", () => { setTimeout(() => { bindRangeOutputs(); ru
 
 form.elements.source.addEventListener("change", syncSourceFields);
 
+document.getElementById("pin-scenario").addEventListener("click", () => {
+  if (!latest) return;
+  pinned = latest;
+  renderDiff(latest);
+  renderPrice(latest);
+});
+
+document.getElementById("unpin-scenario").addEventListener("click", () => {
+  pinned = null;
+  diffBox.hidden = true;
+  if (latest) renderPrice(latest);
+});
+
+/* Wer von Hand an den Reglern dreht, verlässt die Geschichte — der Text stünde
+ * sonst neben einem Bild, das er nicht mehr beschreibt. Und wer einen der vier
+ * Realwert-Regler bewegt, will offensichtlich eine andere Welt durchrechnen;
+ * das Häkchen geht dann von selbst weg, statt die Eingabe zu verschlucken. */
+form.addEventListener("input", (event) => {
+  const kasten = form.elements.real_values;
+  if (kasten && kasten.checked && REALWERT_REGLER.includes(event.target.name)) {
+    kasten.checked = false;
+  }
+  if (!openStory) return;
+  openStory = null;
+  openStep = 0;
+  renderStoryPanel();
+});
+
 restoreFromUrl(form, location.search);
 syncSourceFields();
 bindRangeOutputs();
-prepareDataRange().then(run);
+
+const gewuenschteGeschichte = readStoryFromUrl(location.search);
+prepareDataRange()
+  .then(loadStories)
+  .then(() => {
+    if (gewuenschteGeschichte && findStory(stories, gewuenschteGeschichte.id)) {
+      openStoryAt(gewuenschteGeschichte.id, gewuenschteGeschichte.step);
+    } else {
+      run();
+    }
+  });

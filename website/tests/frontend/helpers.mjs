@@ -28,11 +28,16 @@ export function loadPage() {
   const { window } = dom;
 
   // FormData und URLSearchParams stammen aus dem Fenster, damit sie das
-  // Formular dieses Dokuments kennen.
+  // Formular dieses Dokuments kennen. location und history kommen dazu, weil
+  // die Seite das Szenario in der Adresszeile ablegt — ohne sie bräche jeder
+  // Test, der analysis.js als Ganzes lädt.
   globalThis.window = window;
   globalThis.document = window.document;
   globalThis.FormData = window.FormData;
   globalThis.URLSearchParams = window.URLSearchParams;
+  globalThis.location = window.location;
+  globalThis.history = window.history;
+  globalThis.Event = window.Event;
 
   return { dom, window, document: window.document,
            form: window.document.getElementById("sim-form") };

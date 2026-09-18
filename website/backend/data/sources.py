@@ -33,6 +33,7 @@ class Series(NamedTuple):
     load_gw            stündliche Last in GW
     wind_cf            Kapazitätsfaktor Wind (0..1), mit installierter Leistung zu multiplizieren
     solar_cf           Kapazitätsfaktor Photovoltaik (0..1)
+    net_export_gw      Nettoexport in GW, positiv bei Ausfuhr; leer, wenn unbekannt
     display_timezone   IANA-Zeitzone, in der die Stempel angezeigt gehören
     """
 
@@ -44,6 +45,10 @@ class Series(NamedTuple):
     source: str
     label: str
     meta: Dict
+    # Deutschland ist keine Insel: In Exportstunden muss der Kraftwerkspark mehr
+    # decken als die inländische Last. Leere Liste heißt "nicht bekannt", nicht
+    # "null" — erzeugte Profile haben keinen Außenhandel.
+    net_export_gw: List[float] = []
     # Nur für die Anzeige: Die Zeitstempel oben sind UTC.
     display_timezone: str = timezone_name()
 
@@ -187,6 +192,9 @@ def historical_series(start_ts: int, hours: int,
     names = ("load", "wind_onshore", "wind_offshore", "solar")
     stamps = [start_ts + h * 3600 for h in range(hours)]
     end_ts = start_ts + hours * 3600
+    # Der Außenhandel ist erwünscht, aber nicht Bedingung: Ältere Datenbestände
+    # kennen die Reihe noch nicht, und das Modell soll deswegen nicht scheitern.
+    optional = ("net_export",)
 
     if not store.exists(db_path):
         raise InsufficientData(
@@ -194,7 +202,7 @@ def historical_series(start_ts: int, hours: int,
             "python -m backend.data.ingest --weeks 52")
 
     with store.open_db(db_path) as conn:
-        raw = store.read_many(conn, names, start_ts, end_ts)
+        raw = store.read_many(conn, names + optional, start_ts, end_ts)
 
     missing = {name: sum(1 for ts in stamps if raw[name].get(ts) is None)
                for name in names}
@@ -205,6 +213,21 @@ def historical_series(start_ts: int, hours: int,
     filled = {name: _fill_gaps([raw[name].get(ts) for ts in stamps]) for name in names}
 
     load_gw = [round(v / 1000.0, 3) for v in filled["load"]]
+
+    # Nettoexport: positiv, wenn Deutschland ausführt. Fehlt die Reihe ganz oder
+    # klafft eine zu große Lücke, bleibt sie leer — das Modell rechnet dann wie
+    # bisher ohne Außenhandel und sagt es im Ergebnis.
+    net_export_gw: List[float] = []
+    export_note = None
+    export_raw = [raw["net_export"].get(ts) for ts in stamps]
+    if any(v is not None for v in export_raw):
+        try:
+            net_export_gw = [round(v / 1000.0, 3) for v in _fill_gaps(export_raw)]
+        except InsufficientData as error:
+            export_note = str(error)
+    else:
+        export_note = ("Für diesen Zeitraum liegt kein Außenhandel vor. "
+                       "Abrufen mit: python -m backend.data.ingest --series net_export")
 
     wind_cf: List[float] = []
     solar_cf: List[float] = []
@@ -239,10 +262,12 @@ def historical_series(start_ts: int, hours: int,
         hydro_factor=1.0,
         source=HISTORICAL,
         label=label,
+        net_export_gw=net_export_gw,
         meta={
             "start_ts": start_ts,
             "hours": hours,
             "gaps_filled": {name: missing[name] for name in names if missing[name]},
+            "net_export_missing": export_note,
             "installed_gw": {
                 "wind": round(capacity.installed_gw("wind_onshore", start_ts)
                               + capacity.installed_gw("wind_offshore", start_ts), 2),

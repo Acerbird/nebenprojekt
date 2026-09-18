@@ -1,0 +1,415 @@
+{
+  "_quellen": {
+    "braunkohle": "Nicht enthalten — Braunkohle wird nicht gehandelt. Ihr Preis steht fest in power_plants.json.",
+    "co2": "EEX, Zuschlagspreise der Auktionen im europäischen Emissionshandel (Primärmarkt), Monatsmittel. Luftverkehrszertifikate sind ausgenommen.",
+    "erstellt": "2026-09-18",
+    "gas": "Weltbank, Commodity Price Data (Pink Sheet), Reihe 'Natural gas, Europe' (TTF) in USD je mmbtu, umgerechnet mit 1 mmbtu = 0.293071 MWh und dem EZB-Referenzkurs.",
+    "kohle": "Weltbank, ebenda, Reihe 'Coal, South African' in USD je Tonne, umgerechnet mit 6.978 MWh je Tonne (6000 kcal/kg) und dem EZB-Referenzkurs. Näherung für den europäischen Importpreis.",
+    "wechselkurs": "EZB, Referenzkurs USD/EUR, Monatsmittel."
+  },
+  "months": {
+    "2020-01": {
+      "co2_eur_per_t": 24.36,
+      "coal_eur_per_mwh_th": 10.6,
+      "gas_eur_per_mwh_th": 11.16
+    },
+    "2020-02": {
+      "co2_eur_per_t": 23.89,
+      "coal_eur_per_mwh_th": 10.51,
+      "gas_eur_per_mwh_th": 9.11
+    },
+    "2020-03": {
+      "co2_eur_per_t": 19.87,
+      "coal_eur_per_mwh_th": 8.8,
+      "gas_eur_per_mwh_th": 8.39
+    },
+    "2020-04": {
+      "co2_eur_per_t": 20.06,
+      "coal_eur_per_mwh_th": 7.47,
+      "gas_eur_per_mwh_th": 6.66
+    },
+    "2020-05": {
+      "co2_eur_per_t": 19.62,
+      "coal_eur_per_mwh_th": 7.55,
+      "gas_eur_per_mwh_th": 4.95
+    },
+    "2020-06": {
+      "co2_eur_per_t": 23.25,
+      "coal_eur_per_mwh_th": 7.23,
+      "gas_eur_per_mwh_th": 5.31
+    },
+    "2020-07": {
+      "co2_eur_per_t": 27.34,
+      "coal_eur_per_mwh_th": 7.08,
+      "gas_eur_per_mwh_th": 5.36
+    },
+    "2020-08": {
+      "co2_eur_per_t": 26.54,
+      "coal_eur_per_mwh_th": 6.95,
+      "gas_eur_per_mwh_th": 8.25
+    },
+    "2020-09": {
+      "co2_eur_per_t": 27.57,
+      "coal_eur_per_mwh_th": 6.99,
+      "gas_eur_per_mwh_th": 11.43
+    },
+    "2020-10": {
+      "co2_eur_per_t": 25.17,
+      "coal_eur_per_mwh_th": 7.42,
+      "gas_eur_per_mwh_th": 14.17
+    },
+    "2020-11": {
+      "co2_eur_per_t": 26.32,
+      "coal_eur_per_mwh_th": 8.4,
+      "gas_eur_per_mwh_th": 13.95
+    },
+    "2020-12": {
+      "co2_eur_per_t": 29.76,
+      "coal_eur_per_mwh_th": 10.03,
+      "gas_eur_per_mwh_th": 16.43
+    },
+    "2021-01": {
+      "co2_eur_per_t": 33.51,
+      "coal_eur_per_mwh_th": 10.23,
+      "gas_eur_per_mwh_th": 20.38
+    },
+    "2021-02": {
+      "co2_eur_per_t": 37.66,
+      "coal_eur_per_mwh_th": 9.81,
+      "gas_eur_per_mwh_th": 17.37
+    },
+    "2021-03": {
+      "co2_eur_per_t": 40.5,
+      "coal_eur_per_mwh_th": 10.92,
+      "gas_eur_per_mwh_th": 17.58
+    },
+    "2021-04": {
+      "co2_eur_per_t": 44.96,
+      "coal_eur_per_mwh_th": 10.66,
+      "gas_eur_per_mwh_th": 20.37
+    },
+    "2021-05": {
+      "co2_eur_per_t": 51.96,
+      "coal_eur_per_mwh_th": 11.72,
+      "gas_eur_per_mwh_th": 25.03
+    },
+    "2021-06": {
+      "co2_eur_per_t": 52.7,
+      "coal_eur_per_mwh_th": 13.43,
+      "gas_eur_per_mwh_th": 29.17
+    },
+    "2021-07": {
+      "co2_eur_per_t": 53.42,
+      "coal_eur_per_mwh_th": 14.83,
+      "gas_eur_per_mwh_th": 36.11
+    },
+    "2021-08": {
+      "co2_eur_per_t": 56.29,
+      "coal_eur_per_mwh_th": 16.79,
+      "gas_eur_per_mwh_th": 44.72
+    },
+    "2021-09": {
+      "co2_eur_per_t": 61.33,
+      "coal_eur_per_mwh_th": 17.79,
+      "gas_eur_per_mwh_th": 66.21
+    },
+    "2021-10": {
+      "co2_eur_per_t": 59.62,
+      "coal_eur_per_mwh_th": 24.67,
+      "gas_eur_per_mwh_th": 91.32
+    },
+    "2021-11": {
+      "co2_eur_per_t": 65.54,
+      "coal_eur_per_mwh_th": 16.07,
+      "gas_eur_per_mwh_th": 82.57
+    },
+    "2021-12": {
+      "co2_eur_per_t": 80.64,
+      "coal_eur_per_mwh_th": 18.07,
+      "gas_eur_per_mwh_th": 114.8
+    },
+    "2022-01": {
+      "co2_eur_per_t": 83.3,
+      "coal_eur_per_mwh_th": 21.34,
+      "gas_eur_per_mwh_th": 85.22
+    },
+    "2022-02": {
+      "co2_eur_per_t": 89.99,
+      "coal_eur_per_mwh_th": 24.82,
+      "gas_eur_per_mwh_th": 81.92
+    },
+    "2022-03": {
+      "co2_eur_per_t": 74.61,
+      "coal_eur_per_mwh_th": 38.29,
+      "gas_eur_per_mwh_th": 131.27
+    },
+    "2022-04": {
+      "co2_eur_per_t": 80.53,
+      "coal_eur_per_mwh_th": 40.0,
+      "gas_eur_per_mwh_th": 101.56
+    },
+    "2022-05": {
+      "co2_eur_per_t": 85.29,
+      "coal_eur_per_mwh_th": 37.93,
+      "gas_eur_per_mwh_th": 94.09
+    },
+    "2022-06": {
+      "co2_eur_per_t": 82.72,
+      "coal_eur_per_mwh_th": 39.52,
+      "gas_eur_per_mwh_th": 108.38
+    },
+    "2022-07": {
+      "co2_eur_per_t": 81.58,
+      "coal_eur_per_mwh_th": 37.89,
+      "gas_eur_per_mwh_th": 172.07
+    },
+    "2022-08": {
+      "co2_eur_per_t": 87.66,
+      "coal_eur_per_mwh_th": 38.85,
+      "gas_eur_per_mwh_th": 235.96
+    },
+    "2022-09": {
+      "co2_eur_per_t": 69.57,
+      "coal_eur_per_mwh_th": 34.0,
+      "gas_eur_per_mwh_th": 203.62
+    },
+    "2022-10": {
+      "co2_eur_per_t": 69.52,
+      "coal_eur_per_mwh_th": 27.89,
+      "gas_eur_per_mwh_th": 135.5
+    },
+    "2022-11": {
+      "co2_eur_per_t": 75.55,
+      "coal_eur_per_mwh_th": 23.76,
+      "gas_eur_per_mwh_th": 119.48
+    },
+    "2022-12": {
+      "co2_eur_per_t": 86.47,
+      "coal_eur_per_mwh_th": 29.1,
+      "gas_eur_per_mwh_th": 116.14
+    },
+    "2023-01": {
+      "co2_eur_per_t": 80.07,
+      "coal_eur_per_mwh_th": 22.89,
+      "gas_eur_per_mwh_th": 63.94
+    },
+    "2023-02": {
+      "co2_eur_per_t": 91.98,
+      "coal_eur_per_mwh_th": 19.35,
+      "gas_eur_per_mwh_th": 52.67
+    },
+    "2023-03": {
+      "co2_eur_per_t": 89.46,
+      "coal_eur_per_mwh_th": 18.31,
+      "gas_eur_per_mwh_th": 44.01
+    },
+    "2023-04": {
+      "co2_eur_per_t": 89.6,
+      "coal_eur_per_mwh_th": 17.47,
+      "gas_eur_per_mwh_th": 42.06
+    },
+    "2023-05": {
+      "co2_eur_per_t": 83.83,
+      "coal_eur_per_mwh_th": 13.58,
+      "gas_eur_per_mwh_th": 31.74
+    },
+    "2023-06": {
+      "co2_eur_per_t": 85.03,
+      "coal_eur_per_mwh_th": 13.04,
+      "gas_eur_per_mwh_th": 32.58
+    },
+    "2023-07": {
+      "co2_eur_per_t": 86.3,
+      "coal_eur_per_mwh_th": 12.54,
+      "gas_eur_per_mwh_th": 29.47
+    },
+    "2023-08": {
+      "co2_eur_per_t": 84.78,
+      "coal_eur_per_mwh_th": 12.82,
+      "gas_eur_per_mwh_th": 35.0
+    },
+    "2023-09": {
+      "co2_eur_per_t": 81.99,
+      "coal_eur_per_mwh_th": 13.4,
+      "gas_eur_per_mwh_th": 36.89
+    },
+    "2023-10": {
+      "co2_eur_per_t": 80.71,
+      "coal_eur_per_mwh_th": 17.42,
+      "gas_eur_per_mwh_th": 47.07
+    },
+    "2023-11": {
+      "co2_eur_per_t": 75.69,
+      "coal_eur_per_mwh_th": 14.45,
+      "gas_eur_per_mwh_th": 45.74
+    },
+    "2023-12": {
+      "co2_eur_per_t": 68.74,
+      "coal_eur_per_mwh_th": 14.3,
+      "gas_eur_per_mwh_th": 36.02
+    },
+    "2024-01": {
+      "co2_eur_per_t": 61.66,
+      "coal_eur_per_mwh_th": 14.03,
+      "gas_eur_per_mwh_th": 29.91
+    },
+    "2024-02": {
+      "co2_eur_per_t": 55.35,
+      "coal_eur_per_mwh_th": 13.97,
+      "gas_eur_per_mwh_th": 25.76
+    },
+    "2024-03": {
+      "co2_eur_per_t": 57.46,
+      "coal_eur_per_mwh_th": 13.81,
+      "gas_eur_per_mwh_th": 26.83
+    },
+    "2024-04": {
+      "co2_eur_per_t": 63.83,
+      "coal_eur_per_mwh_th": 14.01,
+      "gas_eur_per_mwh_th": 28.91
+    },
+    "2024-05": {
+      "co2_eur_per_t": 70.94,
+      "coal_eur_per_mwh_th": 14.0,
+      "gas_eur_per_mwh_th": 31.94
+    },
+    "2024-06": {
+      "co2_eur_per_t": 68.6,
+      "coal_eur_per_mwh_th": 14.03,
+      "gas_eur_per_mwh_th": 34.47
+    },
+    "2024-07": {
+      "co2_eur_per_t": 66.82,
+      "coal_eur_per_mwh_th": 13.92,
+      "gas_eur_per_mwh_th": 32.57
+    },
+    "2024-08": {
+      "co2_eur_per_t": 70.07,
+      "coal_eur_per_mwh_th": 13.82,
+      "gas_eur_per_mwh_th": 38.33
+    },
+    "2024-09": {
+      "co2_eur_per_t": 65.16,
+      "coal_eur_per_mwh_th": 13.69,
+      "gas_eur_per_mwh_th": 36.19
+    },
+    "2024-10": {
+      "co2_eur_per_t": 63.1,
+      "coal_eur_per_mwh_th": 14.04,
+      "gas_eur_per_mwh_th": 40.43
+    },
+    "2024-11": {
+      "co2_eur_per_t": 67.02,
+      "coal_eur_per_mwh_th": 14.4,
+      "gas_eur_per_mwh_th": 44.71
+    },
+    "2024-12": {
+      "co2_eur_per_t": 67.22,
+      "coal_eur_per_mwh_th": 14.43,
+      "gas_eur_per_mwh_th": 45.13
+    },
+    "2025-01": {
+      "co2_eur_per_t": 75.9,
+      "coal_eur_per_mwh_th": 14.3,
+      "gas_eur_per_mwh_th": 48.31
+    },
+    "2025-02": {
+      "co2_eur_per_t": 75.72,
+      "coal_eur_per_mwh_th": 13.82,
+      "gas_eur_per_mwh_th": 50.27
+    },
+    "2025-03": {
+      "co2_eur_per_t": 68.76,
+      "coal_eur_per_mwh_th": 13.0,
+      "gas_eur_per_mwh_th": 41.8
+    },
+    "2025-04": {
+      "co2_eur_per_t": 64.21,
+      "coal_eur_per_mwh_th": 12.22,
+      "gas_eur_per_mwh_th": 35.27
+    },
+    "2025-05": {
+      "co2_eur_per_t": 70.52,
+      "coal_eur_per_mwh_th": 11.98,
+      "gas_eur_per_mwh_th": 35.28
+    },
+    "2025-06": {
+      "co2_eur_per_t": 72.12,
+      "coal_eur_per_mwh_th": 11.67,
+      "gas_eur_per_mwh_th": 36.65
+    },
+    "2025-07": {
+      "co2_eur_per_t": 69.99,
+      "coal_eur_per_mwh_th": 11.49,
+      "gas_eur_per_mwh_th": 33.96
+    },
+    "2025-08": {
+      "co2_eur_per_t": 70.96,
+      "coal_eur_per_mwh_th": 11.5,
+      "gas_eur_per_mwh_th": 32.71
+    },
+    "2025-09": {
+      "co2_eur_per_t": 75.46,
+      "coal_eur_per_mwh_th": 11.27,
+      "gas_eur_per_mwh_th": 32.34
+    },
+    "2025-10": {
+      "co2_eur_per_t": 77.92,
+      "coal_eur_per_mwh_th": 11.29,
+      "gas_eur_per_mwh_th": 31.95
+    },
+    "2025-11": {
+      "co2_eur_per_t": 80.7,
+      "coal_eur_per_mwh_th": 11.36,
+      "gas_eur_per_mwh_th": 30.76
+    },
+    "2025-12": {
+      "co2_eur_per_t": 82.74,
+      "coal_eur_per_mwh_th": 11.13,
+      "gas_eur_per_mwh_th": 27.63
+    },
+    "2026-01": {
+      "co2_eur_per_t": 86.51,
+      "coal_eur_per_mwh_th": 11.06,
+      "gas_eur_per_mwh_th": 34.18
+    },
+    "2026-02": {
+      "co2_eur_per_t": 73.77,
+      "coal_eur_per_mwh_th": 11.05,
+      "gas_eur_per_mwh_th": 32.44
+    },
+    "2026-03": {
+      "co2_eur_per_t": 68.17,
+      "coal_eur_per_mwh_th": 11.63,
+      "gas_eur_per_mwh_th": 52.87
+    },
+    "2026-04": {
+      "co2_eur_per_t": 72.81,
+      "coal_eur_per_mwh_th": 11.61,
+      "gas_eur_per_mwh_th": 44.92
+    },
+    "2026-05": {
+      "co2_eur_per_t": 74.95,
+      "coal_eur_per_mwh_th": 11.74,
+      "gas_eur_per_mwh_th": 47.27
+    },
+    "2026-06": {
+      "co2_eur_per_t": 77.82,
+      "coal_eur_per_mwh_th": 11.98,
+      "gas_eur_per_mwh_th": 44.94
+    },
+    "2026-07": {
+      "co2_eur_per_t": 80.26,
+      "coal_eur_per_mwh_th": 12.09,
+      "gas_eur_per_mwh_th": 53.97
+    },
+    "2026-08": {
+      "co2_eur_per_t": 81.63,
+      "coal_eur_per_mwh_th": 11.97,
+      "gas_eur_per_mwh_th": 62.13
+    },
+    "2026-09": {
+      "co2_eur_per_t": 84.13
+    }
+  }
+}

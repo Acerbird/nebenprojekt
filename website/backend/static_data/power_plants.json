@@ -78,7 +78,8 @@
       "efficiency_high": 0.445,
       "efficiency_low": 0.315,
       "var_om_low": 2.5,
-      "var_om_high": 10.5
+      "var_om_high": 10.5,
+      "min_load_share": 0.21
     },
     {
       "id": "steinkohle",
@@ -91,7 +92,8 @@
       "efficiency_high": 0.475,
       "efficiency_low": 0.365,
       "var_om_low": 2.0,
-      "var_om_high": 10.0
+      "var_om_high": 10.0,
+      "min_load_share": 0.07
     },
     {
       "id": "gud",
@@ -104,7 +106,8 @@
       "efficiency_high": 0.62,
       "efficiency_low": 0.505,
       "var_om_low": 1.5,
-      "var_om_high": 9.5
+      "var_om_high": 9.5,
+      "min_load_share": 0.1
     },
     {
       "id": "gasturbine",
@@ -147,7 +150,9 @@
     "pumpspeicher_energie": "Rund 40 GWh nutzbarer Speicherinhalt — Größenordnung für Deutschland, nicht aus einer Einzelquelle belegt.",
     "wirkungsgrade": "Übliche Werte: Batterie etwa 88 %, Pumpspeicher etwa 75 % über den vollen Lade- und Entladezyklus.",
     "wirkungsgrad_bandbreiten": "Bandbreiten und Gebotsuntergrenzen nach tech_params.csv aus dem Projekt 'Forecasting Electricity Prices' (S. Hellbusch). Statt eines festen Wirkungsgrads je Block wird eine Spanne angesetzt — dadurch entsteht eine Angebotsrampe statt einer Treppenstufe.",
-    "gebotsuntergrenzen": "Erneuerbare bieten bis deutlich unter null, weil Einspeisevergütung den Weiterbetrieb auch bei negativen Preisen lohnend macht: Wasserkraft und Photovoltaik bis -500, Biomasse bis -200, Wind bis -70/-150 EUR/MWh."
+    "gebotsuntergrenzen": "Erneuerbare bieten bis deutlich unter null, weil Einspeisevergütung den Weiterbetrieb auch bei negativen Preisen lohnend macht: Wasserkraft und Photovoltaik bis -500, Biomasse bis -200, Wind bis -70/-150 EUR/MWh.",
+    "mindestlast": "Anteil der installierten Leistung, der als Mindestlast im Markt bleibt, statt abzufahren. An SMARD gemessen, nicht geschätzt: In den 1.802 Stunden mit negativem Day-Ahead-Preis zwischen 2022-12 und 2026-09 lief Braunkohle im Median mit 3,18 GW von 15 GW (0,21), Steinkohle mit 0,90 GW von 13 GW (0,07) und Erdgas mit 2,09 GW — hier dem GuD-Park mit 20 GW zugeordnet (0,10), weil die Fernwärmeauskopplung vor allem dort hängt, nicht an den Gasturbinen.",
+    "aussenhandel": "Medianer Nettoexport je Preisklasse, aus SMARD-Filter 4629 und den Day-Ahead-Preisen derselben Stunde, 32.711 Stunden von 2022-12 bis 2026-09. Die Kurve ist über den ganzen Bereich monoton fallend: Bei Preisen unter -20 EUR/MWh führt Deutschland im Median 9,4 GW aus, über 150 EUR/MWh führt es 6,9 GW ein."
   },
   "variable": {
     "wind": {
@@ -160,5 +165,48 @@
       "bid_high": 0.0,
       "note": "Bietet noch tiefer als Wind, weil die Vergütung höher liegt."
     }
+  },
+  "exchange": {
+    "max_export_gw": 11.0,
+    "max_import_gw": 7.0,
+    "curve": [
+      [
+        -60,
+        9.35
+      ],
+      [
+        -10,
+        7.92
+      ],
+      [
+        10,
+        5.34
+      ],
+      [
+        30,
+        2.37
+      ],
+      [
+        50,
+        0.63
+      ],
+      [
+        70,
+        -2.11
+      ],
+      [
+        90,
+        -3.71
+      ],
+      [
+        125,
+        -4.61
+      ],
+      [
+        200,
+        -6.92
+      ]
+    ],
+    "note": "Preisabhängiger Nettoexport in GW, positiv bei Ausfuhr."
   }
 }
