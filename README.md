@@ -254,9 +254,9 @@ und Währung an einer Stelle, vorbereitet für weitere Länder.
 
 ## Preisvorhersage
 
-Neben dem Merit-Order-Modell stehen zwei eigenständige Vorhersagemodelle zur
-Verfügung, die auf der Analyseseite als **Forecast-Modell 1** und **Forecast-Modell 2**
-erscheinen. Sie stammen aus einem getrennten Forschungsprojekt und werden hier
+Neben dem Merit-Order-Modell stehen drei eigenständige Vorhersagemodelle zur
+Verfügung, die auf der Analyseseite als **Forecast-Modell 1** bis **3**
+erscheinen, dazu eine einfache Regel als Vergleichsmaßstab. Sie stammen aus einem getrennten Forschungsprojekt und werden hier
 nur benutzt; ihre Funktionsweise gehört nicht in die Oberfläche.
 
 Sie laufen **außerhalb der Website**, im Ordner `forecasting/` mit eigener
@@ -280,11 +280,50 @@ Die Paketversionen sind auf den Stand des Forschungsprojekts festgelegt, damit
 hier dieselben Zahlen herauskommen wie dort. Vor langen Läufen fragt das
 Programm nach — ein Jahr mit Modell 2 wären rund zwölf Stunden.
 
+Vorliegende Ergebnisse lassen sich auch direkt übernehmen, statt sie erneut zu
+rechnen:
+
+```bash
+backend/.venv/bin/python -m forecasting.import_results forecasting/data/*_forecast.csv
+```
+
+Diese Dateien enthalten für jede Stunde den tatsächlichen Preis und die
+Vorhersage jedes Modells. Drei Jahre so zu übernehmen dauert Sekunden — sie
+selbst zu rechnen wären mit Modell 2 rund anderthalb Tage.
+
 Liegen für einen Zeitraum Vorhersagen vor, zeigt die Analyseseite sie als
 weitere Linien neben dem Modellpreis und stellt alle Modelle in einer Tabelle
-dem tatsächlich gezahlten Preis gegenüber. Der Vergleich ist der eigentliche
-Gewinn: Ein Modell, das den Kraftwerkseinsatz nachrechnet, und eines, das aus
-der Vergangenheit lernt, liegen erkennbar unterschiedlich nah am Markt.
+gegenüber. Neben den drei Vorhersagemodellen läuft eine **einfache Regel** mit —
+derselbe Wochentag der Vorwoche. Sie ist der Maßstab, den ein Modell schlagen
+muss, und sie schlägt ihrerseits das Merit-Order-Modell deutlich. Genau das ist
+der Gewinn des Vergleichs: Er zeigt, wo ein Modell steht, das den
+Kraftwerkseinsatz nachrechnet, verglichen mit Modellen, die aus der
+Vergangenheit lernen.
+
+### Zwei Preisreihen, ein Maßstab
+
+Die Vorhersagemodelle wurden auf einer anderen Preisreihe entwickelt, als SMARD
+liefert — und das ist kein Fehler auf einer der beiden Seiten:
+
+* **SMARD** weist den **Stundenkontrakt** der Day-Ahead-Auktion aus. Fragt man
+  dort Viertelstundenauflösung ab, wird derselbe Stundenwert viermal wiederholt.
+* Die **Referenzreihe** der Modelle ist das **Mittel der vier viertelstündlichen
+  Day-Ahead-Preise** einer Stunde, wie ENTSO-E sie für die Gebotszone DE/LU
+  ausweist. Innerhalb einer Stunde laufen diese vier Werte im Mittel um rund
+  45 €/MWh auseinander, in praktisch jeder Stunde seit 2018.
+
+Ihr Mittel ist deshalb nicht der Stundenpreis. Beide Reihen korrelieren mit etwa
+0,96, weichen je Stunde aber um durchschnittlich 9 €/MWh ab.
+
+Für die Bewertung ist das erheblich: Ein Modell an einer anderen Reihe zu
+messen, als es vorhersagt, lastet ihm einen Fehler an, den es nicht gemacht
+hat. Deshalb gilt: Liegen Vorhersagen vor, werden **alle** Modelle an deren
+Referenzreihe gemessen — auch das Merit-Order-Modell. Sonst bleibt es beim
+SMARD-Preis. Welcher Maßstab gerade gilt, steht unter der Vergleichstabelle;
+die gezeichnete Preiskurve bleibt in jedem Fall die von SMARD.
+
+Das Import-Programm prüft diesen Abgleich bei jedem Lauf und warnt, wenn die
+mitgelieferten Preise nicht zu den eigenen Messwerten passen.
 
 > **Vor einer Veröffentlichung zu klären.** Die Trainingsdaten unter
 > `forecasting/data/` enthalten lizenzierte Commodity-Preise (Refinitiv/LSEG)
@@ -331,6 +370,7 @@ website/
 ├── package.json                nur für die Frontend-Tests (jsdom)
 ├── forecasting/                Preisvorhersage, getrennt von der Website
 │   ├── run_forecast.py         rechnet Vorhersagen in die Datenbank
+│   ├── import_results.py       übernimmt vorliegende Ergebnisse (nur Stdlib)
 │   ├── config.py               Einstellungen beider Modelle
 │   ├── models/, utils/         die Modelle selbst
 │   ├── requirements.txt        pandas, numpy, scipy, statsmodels, scikit-learn

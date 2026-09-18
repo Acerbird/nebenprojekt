@@ -35,8 +35,10 @@ DEEP_SURPLUS_PRICE = -60.0
 # Anzeigenamen der Vorhersagemodelle. Ihre Funktionsweise gehört nicht in die
 # Oberfläche — für die Benutzung zählt, wie gut sie treffen.
 FORECAST_LABELS = {
+    "baseline": "Einfache Regel",
     "model_1": "Forecast-Modell 1",
     "model_2": "Forecast-Modell 2",
+    "model_3": "Forecast-Modell 3",
 }
 
 # Untergrenze der Preissuche. Tiefer bietet niemand, weil dort auch die
@@ -651,12 +653,25 @@ def simulate(wind_gw: Optional[float] = None, solar_gw: Optional[float] = None,
     forecasts: Dict[str, Dict] = {}
     if params["source"] == sources.HISTORICAL and params.get("start_ts") is not None:
         actual = sources.actual_prices(params["start_ts"], n)
-        if actual:
-            validation = compare_with_actual(prices, actual)
-            for model, values in sources.model_forecasts(params["start_ts"], n).items():
+        vorhersagen = sources.model_forecasts(params["start_ts"], n)
+
+        # Alle Modelle werden an derselben Reihe gemessen, sonst wäre der
+        # Vergleich wertlos. Liegen Vorhersagen vor, gilt die Reihe, gegen die
+        # sie entwickelt wurden; sonst der SMARD-Preis.
+        referenz = sources.reference_prices(params["start_ts"], n) if vorhersagen else None
+        massstab = referenz if referenz else actual
+        massstab_name = "reference" if referenz else "smard"
+
+        if massstab:
+            validation = compare_with_actual(prices, massstab)
+            if validation:
+                validation["benchmark"] = massstab_name
+                # Der SMARD-Preis bleibt die angezeigte Kurve.
+                validation["actual_price_eur_mwh"] = actual or massstab
+            for model, values in vorhersagen.items():
                 vergleich = compare_with_actual(
                     [v if v is not None else 0.0 for v in values],
-                    [a if v is not None else None for v, a in zip(values, actual)])
+                    [a if v is not None else None for v, a in zip(values, massstab)])
                 forecasts[model] = {
                     "label": FORECAST_LABELS.get(model, model),
                     "values": values,

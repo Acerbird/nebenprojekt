@@ -183,3 +183,101 @@ class ForecastLoadingTest(ActualPriceLoadingTestCase):
     def test_erzeugte_profile_bekommen_keine_vorhersagen(self):
         """Eine Vorhersage gibt es nur für einen echten Zeitraum."""
         self.assertEqual(anl.simulate(hours=24)["forecasts"], {})
+
+
+class BenchmarkChoiceTest(ActualPriceLoadingTestCase):
+    """Alle Modelle müssen an derselben Reihe gemessen werden.
+
+    Die Vorhersagemodelle wurden auf einer Preisreihe entwickelt, die
+    Viertelstundenpreise mittelt; SMARD weist den Stundenkontrakt aus. Beide
+    laufen eng beieinander, weichen je Stunde aber spürbar ab. Ein Modell an
+    der falschen Reihe zu messen, lastet ihm einen Fehler an, den es nicht
+    gemacht hat.
+    """
+
+    def write_reference(self, values):
+        with store.open_db(self.path) as conn:
+            store.write_observations(conn, sources.REFERENCE_SERIES,
+                                     list(zip(self.stamps, values)))
+
+    def test_referenzreihe_wird_gelesen(self):
+        self.write_reference([float(i) for i in range(24)])
+        got = sources.reference_prices(START, 24, db_path=self.path)
+        self.assertEqual(got[0], 0.0)
+        self.assertEqual(got[23], 23.0)
+
+    def test_ohne_referenzreihe_gibt_es_nichts(self):
+        self.write([50.0] * 24)          # nur SMARD-Preise
+        self.assertIsNone(sources.reference_prices(START, 24, db_path=self.path))
+
+    def test_referenz_und_smard_sind_getrennte_reihen(self):
+        self.write([50.0] * 24)
+        self.write_reference([60.0] * 24)
+        self.assertEqual(sources.actual_prices(START, 24, db_path=self.path)[0], 50.0)
+        self.assertEqual(sources.reference_prices(START, 24, db_path=self.path)[0], 60.0)
+
+    def test_luecken_bleiben_luecken(self):
+        werte = [50.0] * 24
+        werte[7] = None
+        self.write_reference(werte)
+        self.assertIsNone(sources.reference_prices(START, 24, db_path=self.path)[7])
+
+
+class BenchmarkInSimulationTest(unittest.TestCase):
+    """Zusammenspiel in der Simulation, gegen eine künstliche Datenbank."""
+
+    HOURS = 48
+
+    def setUp(self):
+        import tempfile
+        from unittest import mock
+
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        path = os.path.join(self.directory.name, "bench.sqlite3")
+        self.stamps = [START + h * 3600 for h in range(self.HOURS)]
+
+        with store.open_db(path) as conn:
+            for name, wert in (("load", 50000.0), ("wind_onshore", 20000.0),
+                               ("wind_offshore", 4000.0), ("solar", 10000.0)):
+                store.write_observations(conn, name, [(t, wert) for t in self.stamps])
+            store.write_observations(conn, "price", [(t, 100.0) for t in self.stamps])
+            self.conn_path = path
+
+        patcher = mock.patch.object(store, "DEFAULT_PATH", path)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def add_reference_and_forecast(self):
+        with store.open_db(self.conn_path) as conn:
+            store.write_observations(conn, sources.REFERENCE_SERIES,
+                                     [(t, 80.0) for t in self.stamps])
+            store.write_forecasts(conn, "model_1", [(t, 82.0) for t in self.stamps])
+
+    def run_case(self):
+        return anl.simulate(source="historical", start="2024-06-03",
+                            hours=self.HOURS, wind_gw=70.0, solar_gw=90.0)
+
+    def test_ohne_vorhersagen_gilt_der_smard_preis(self):
+        result = self.run_case()
+        self.assertEqual(result["validation"]["benchmark"], "smard")
+        self.assertAlmostEqual(result["validation"]["mean_actual"], 100.0, places=1)
+
+    def test_mit_vorhersagen_gilt_deren_referenzreihe(self):
+        self.add_reference_and_forecast()
+        result = self.run_case()
+        self.assertEqual(result["validation"]["benchmark"], "reference")
+        self.assertAlmostEqual(result["validation"]["mean_actual"], 80.0, places=1)
+
+    def test_angezeigt_bleibt_der_smard_preis(self):
+        """Der Maßstab ändert die Bewertung, nicht die gezeichnete Kurve."""
+        self.add_reference_and_forecast()
+        result = self.run_case()
+        self.assertEqual(result["validation"]["actual_price_eur_mwh"][0], 100.0)
+
+    def test_alle_modelle_teilen_den_maßstab(self):
+        self.add_reference_and_forecast()
+        result = self.run_case()
+        vergleich = result["forecasts"]["model_1"]["comparison"]
+        # Vorhersage 82 gegen Referenz 80 ergibt genau 2 — nicht 18 gegen SMARD.
+        self.assertAlmostEqual(vergleich["mean_absolute_error"], 2.0, places=1)

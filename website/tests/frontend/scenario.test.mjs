@@ -343,3 +343,45 @@ describe("Modelle im Vergleich", () => {
     assert.equal(buildComparisonRows(result).length, 2);
   });
 });
+
+describe("Maßstab des Vergleichs", () => {
+  const { buildComparisonTable } = scenarioModule;
+
+  const mitMassstab = (benchmark) => historicalResult({
+    validation: {
+      hours_compared: 168, mean_model: 70, mean_actual: 80, mean_absolute_error: 39.0,
+      bias: -10, correlation: 0.44, actual_price_eur_mwh: [70, 80], benchmark,
+    },
+    forecasts: {
+      baseline: { label: "Einfache Regel", values: [72, 82],
+                  comparison: { hours_compared: 168, mean_absolute_error: 32.1, correlation: 0.72 } },
+      model_1: { label: "Forecast-Modell 1", values: [71, 81],
+                 comparison: { hours_compared: 168, mean_absolute_error: 14.5, correlation: 0.94 } },
+    },
+  });
+
+  it("nennt die abweichende Referenzreihe, wenn sie benutzt wird", () => {
+    const html = buildComparisonTable(mitMassstab("reference"));
+    assert.match(html, /viertelstündlichen Day-Ahead-Preise/);
+    assert.match(html, /Stundenkontrakt/);
+    assert.match(html, /demselben Prüfstand/);
+  });
+
+  it("nennt sonst den Stundenkontrakt", () => {
+    const html = buildComparisonTable(mitMassstab("smard"));
+    assert.match(html, /Stundenkontrakt der Börse/);
+    assert.doesNotMatch(html, /viertelstündlichen Day-Ahead-Preise/);
+  });
+
+  it("führt die einfache Regel als Maßstab mit auf", () => {
+    const html = buildComparisonTable(mitMassstab("reference"));
+    assert.match(html, /Einfache Regel/);
+  });
+
+  it("hebt das genaueste Modell hervor, nicht die Regel", () => {
+    const html = buildComparisonTable(mitMassstab("reference"));
+    const beste = html.split("<tr").filter((z) => z.includes("is-best"));
+    assert.equal(beste.length, 1);
+    assert.match(beste[0], /Forecast-Modell 1/);
+  });
+});

@@ -276,6 +276,36 @@ def actual_prices(start_ts: int, hours: int,
     return [raw.get(ts) for ts in stamps]
 
 
+# Preisreihe, auf die die Vorhersagemodelle entwickelt wurden: das Mittel der
+# vier viertelstündlichen Day-Ahead-Preise einer Stunde, wie ENTSO-E sie für die
+# Gebotszone DE/LU ausweist. SMARD nennt dagegen den Stundenkontrakt. Innerhalb
+# einer Stunde laufen die Viertelstundenpreise im Mittel um rund 45 €/MWh
+# auseinander, weshalb ihr Mittel nicht der Stundenpreis ist — beide Reihen
+# korrelieren mit etwa 0,96, weichen je Stunde aber um rund 9 €/MWh ab.
+REFERENCE_SERIES = "price_reference"
+
+
+def reference_prices(start_ts: int, hours: int,
+                     db_path: Optional[str] = None) -> Optional[List[Optional[float]]]:
+    """Die Preisreihe, gegen die die Vorhersagemodelle entwickelt wurden.
+
+    None, wenn für den Zeitraum keine vorliegt — dann bleibt es beim
+    SMARD-Preis. Ein Modell an einer anderen Reihe zu messen, als es
+    vorhersagt, würde ihm einen Fehler anlasten, den es nicht gemacht hat.
+    """
+    from . import store
+
+    if not store.exists(db_path):
+        return None
+    stamps = [start_ts + h * 3600 for h in range(hours)]
+    with store.open_db(db_path) as conn:
+        raw = dict(store.read_series(conn, REFERENCE_SERIES, start_ts,
+                                     start_ts + hours * 3600))
+    if not any(raw.get(ts) is not None for ts in stamps):
+        return None
+    return [raw.get(ts) for ts in stamps]
+
+
 def model_forecasts(start_ts: int, hours: int,
                     db_path: Optional[str] = None) -> Dict[str, List[Optional[float]]]:
     """Vorberechnete Preisvorhersagen für den Zeitraum, je Modell.

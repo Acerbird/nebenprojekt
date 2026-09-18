@@ -14,10 +14,17 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 TRAINING_DATA = os.path.join(DATA_DIR, "model_df_hour_20181001_20260101.csv.gz")
 
 # Kennungen, unter denen die Vorhersagen in der Datenbank liegen.
+BASELINE = "baseline"
 MODEL_1 = "model_1"
 MODEL_2 = "model_2"
+MODEL_3 = "model_3"
 
 MODELS = {
+    BASELINE: {
+        "label": "Einfache Regel",
+        "hint": "derselbe Wochentag der Vorwoche — der Maßstab, den ein Modell schlagen muss",
+        "seconds_per_day": 0,
+    },
     MODEL_1: {
         "label": "Forecast-Modell 1",
         "hint": "statistisches Modell auf Preishistorie, Brennstoffpreisen und Kalender",
@@ -25,10 +32,38 @@ MODELS = {
     },
     MODEL_2: {
         "label": "Forecast-Modell 2",
-        "hint": "nichtlineares Regimemodell — rechnet deutlich länger, trifft etwas besser",
+        "hint": "nichtlineares Regimemodell — rechnet deutlich länger, trifft meist besser",
         "seconds_per_day": 120,
     },
+    MODEL_3: {
+        "label": "Forecast-Modell 3",
+        "hint": "lineares Modell je Tagesstunde",
+        "seconds_per_day": 2,
+    },
 }
+
+# Die Modelle, die selbst gerechnet werden können. Die übrigen kommen aus
+# vorliegenden Ergebnisdateien (siehe import_results.py).
+COMPUTABLE = (MODEL_1, MODEL_2)
+
+# Spalten der Ergebnisdateien des Forschungsprojekts und ihre Zuordnung.
+RESULT_COLUMNS = {
+    "Naive Forecast": BASELINE,
+    "Expert Forecast": MODEL_1,
+    "LSTR Hourly Forecast": MODEL_2,
+    "LR Hourly Forecast": MODEL_3,
+}
+REALIZED_COLUMN = "Realized Price"
+
+# Unter diesem Namen landet die Preisreihe, auf die die Modelle trainiert
+# wurden. Sie entsteht in der Aufbereitung des Forschungsprojekts als Mittel
+# der vier viertelstündlichen Day-Ahead-Preise einer Stunde (ENTSO-E, Gebotszone
+# DE/LU). Das ist nicht der Stundenkontrakt, den SMARD ausweist: Innerhalb einer
+# Stunde laufen die Viertelstundenpreise im Mittel um rund 45 €/MWh auseinander.
+# Beide Reihen korrelieren mit etwa 0,96, weichen je Stunde aber um rund
+# 9 €/MWh ab. Wer Modelle bewertet, muss sie an der Reihe messen, die sie
+# vorhersagen.
+REFERENCE_SERIES = "price_reference"
 
 # Einstellungen von Modell 2, übernommen aus dem letzten Lauf des
 # Forschungsprojekts. Ohne sie rechnet das Modell etwas anderes.

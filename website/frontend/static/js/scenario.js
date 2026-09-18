@@ -220,11 +220,19 @@ export function buildComparisonTable(result) {
         <td>${fmt.plain(r.error, 1)}</td>
         <td>${r.correlation === null ? "–" : fmt.plain(r.correlation, 2)}</td>
       </tr>`).join("");
+  const massstab = result.validation && result.validation.benchmark === "reference"
+    ? "Gemessen wird an der Preisreihe, für die die Vorhersagemodelle gebaut wurden: " +
+      "dem Mittel der vier viertelstündlichen Day-Ahead-Preise einer Stunde. Die oben " +
+      "gezeichnete Kurve zeigt dagegen den Stundenkontrakt, den SMARD ausweist — beide " +
+      "laufen eng beieinander, weichen je Stunde aber ab. Alle Modelle stehen dabei auf " +
+      "demselben Prüfstand."
+    : "Gemessen wird am Stundenkontrakt der Börse, wie SMARD ihn ausweist.";
+
   return `
     <strong>Modelle im Vergleich mit dem tatsächlichen Preis</strong>
     <table class="comparison">
       <thead><tr><th scope="col">Modell</th><th scope="col">Abweichung</th><th scope="col">Korrelation</th></tr></thead>
       <tbody>${zeilen}</tbody>
     </table>
-    <p class="small muted">Abweichung in €/MWh, im Mittel über ${rows[0].hours} Stunden. Je kleiner, desto näher am Markt; die Korrelation sagt, ob der Verlauf stimmt.</p>`;
+    <p class="small muted">Abweichung in €/MWh, im Mittel über ${rows[0].hours} Stunden. Je kleiner, desto näher am Markt; die Korrelation sagt, ob der Verlauf stimmt. ${massstab}</p>`;
 }
